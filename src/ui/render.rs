@@ -107,32 +107,38 @@ pub fn render_winner(
 }
 
 /// Probability view: per cell a `by × bx` mini-grid with the percentage of
-/// each digit (mini-cell (i, j) shows digit i*bx + j + 1). Cells are
-/// delimited by `:` within a row and by `-` lines between cell rows.
+/// each digit (mini-cell (i, j) shows digit i*bx + j + 1). Within a block,
+/// cells are delimited by `:` and cell rows by `-` lines; block boundaries
+/// stay `#` (vertical `#` between block columns, `#` line between block rows).
 pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Result<()> {
     let n = size.n();
     let mut width = 0_usize;
     for x in 0..n {
         for i in 0..size.by {
-            let mut cells = Vec::with_capacity(n);
-            for y in 0..n {
-                let mut cell = String::new();
-                for j in 0..size.bx {
-                    let d = (i * size.bx + j + 1) as u8;
-                    let p = values[variables::idx(size, x, y, d)];
-                    if j > 0 {
-                        cell.push(' ');
+            let mut groups = Vec::with_capacity(size.block_columns());
+            for cx in 0..size.block_columns() {
+                let mut cells = Vec::with_capacity(size.bx);
+                for y in cx * size.bx..(cx + 1) * size.bx {
+                    let mut cell = String::new();
+                    for j in 0..size.bx {
+                        let d = (i * size.bx + j + 1) as u8;
+                        let p = values[variables::idx(size, x, y, d)];
+                        if j > 0 {
+                            cell.push(' ');
+                        }
+                        cell.push_str(&format!("{:>3.0}%", 100.0 * p));
                     }
-                    cell.push_str(&format!("{:>3.0}%", 100.0 * p));
+                    cells.push(cell);
                 }
-                cells.push(cell);
+                groups.push(cells.join(":"));
             }
-            let line = cells.join(":");
+            let line = groups.join("#");
             width = width.max(line.len());
             writeln!(w, "{line}")?;
         }
         if x + 1 < n {
-            writeln!(w, "{}", "-".repeat(width))?;
+            let sep = if (x + 1) % size.by == 0 { '#' } else { '-' };
+            writeln!(w, "{}", sep.to_string().repeat(width))?;
         }
     }
     Ok(())

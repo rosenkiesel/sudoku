@@ -16,7 +16,7 @@ commands:
   load <grid>       load givens from a grid string (rows ';', block columns ',')
   solve [eps]       solve along the central path (default eps 1e-6)
   view winner       argmax per cell + conflicting rows/columns (block borders '#')
-  view probs        per-cell percentage mini-grid (cells ':', cell rows '-')
+  view probs        per-cell percentage mini-grid (cells ':' within a block, block borders '#')
   show              re-render
   clear             remove all givens
   help              this text
