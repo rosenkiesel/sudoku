@@ -1,0 +1,8 @@
+[package]
+name = "sudoku-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Probabilistic sudoku: p(x,y,n) variables, linear rule constraints, central-path LP solve"
+license = "GPL-3.0-only"
+
+[dependencies]

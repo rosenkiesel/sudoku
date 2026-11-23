@@ -1,5 +1,7 @@
 # sudoku-rs
 
+[![CI](https://github.com/rosenkiesel/sudoku/actions/workflows/ci.yml/badge.svg)](https://github.com/rosenkiesel/sudoku/actions/workflows/ci.yml)
+
 Probabilistic Sudoku in Rust: cells are modeled as a probability vector, the rules are linear
 equations, and the solution is computed along the central path of the LP. Console UI first,
 abstracted behind traits so any other frontend can replace it later.
@@ -29,9 +31,10 @@ Rules as linear equations, e.g.:
 
 plus the bounds `0.0 <= p(x, y, n) <= 1.0`.
 
-The model stores **no givens** — that is the UI's job. The UI maps givens to a target vector
-`t ∈ [0,1]^N³` (1.0 for a given digit, 0.0 for the other digits of that cell) and hands `t`
-plus an **epsilon** to the model. Epsilon is the barrier weight μ in the objective:
+The model stores **no givens** — that is the UI's job. The UI builds a target vector
+`t` of length `N³` (base: uniform random in [-1,+1] via `rand`, or zeros; each given adds
+**+10.0** on top at its variable) and hands `t` plus an **epsilon** to the model. Epsilon is
+the barrier weight μ in the objective:
 
 ```text
 φ_ε(x) = −tᵀ·x − ε · Σᵢ ( ln xᵢ + ln(1 − xᵢ) )    s.t.  A·x = b
@@ -51,12 +54,13 @@ specs in [REQUIREMENTS.md](REQUIREMENTS.md).
 ## Status
 
 - [x] `README.md`, `ARCHITECTURE.md`, `REQUIREMENTS.md`, `AGENTS.md`
-- [ ] `model` – `Size{bx,by}`, variables `p(x,y,n)`, constraints, `SolveRequest { size, target, epsilon }`
-- [ ] `solver` – central-path (interior-point) LP with μ-sweep
-- [ ] `ui` – console REPL + the two output views
-- [ ] `app` – generic game loop over `Solver` and `Ui`
+- [x] `model` – `Size{bx,by}`, variables `p(x,y,n)`, constraints, `SolveRequest { size, target, epsilon }`
+- [x] `solver` – central-path (interior-point) LP with μ-sweep
+- [x] `ui` – console REPL + the two output views
+- [x] `app` – generic game loop over `Solver` and `Ui`
+- [x] CI – GitHub Actions (fmt, clippy, build, test) on push/PR, badge above
 
-## Planned console usage
+## Console usage
 
 ```text
 $ cargo run
@@ -66,13 +70,17 @@ $ cargo run
 > solve         # central-path solve (default epsilon 1e-6)
 > view winner   # argmax per cell + erroneous rows/cols marked
 > view probs    # by x bx percentage mini-grid per cell
-> load 530070600600195342098000060800060003400803001700020006060000280000419005000080079
+> load 530070000600195000098000060800060003400803001700020006060000280000419005000080079
 > quit
 ```
 
 ## Development
 
 ```bash
-cargo test    # unit + integration tests
-cargo run     # console version
+cargo fmt --check                 # format check (also in CI)
+cargo clippy --all-targets -- -D warnings
+cargo test                        # unit + integration tests
+cargo run                         # console version
 ```
+
+CI runs on every push to `main` / `vibe/**` and on PRs — see the badge above.

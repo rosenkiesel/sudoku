@@ -21,7 +21,7 @@ REPL continues.
 | `view winner` | winner view (§4.1) |
 | `view probs` | probability view (§4.2) |
 | `show` | current size, givens and a summary of the target vector |
-| `load <string>` | N² characters, digit chars for 1..=N (hex digits beyond 9), `.` = empty; each digit becomes a given |
+| `load <string>` | N² characters, digit chars for 1..=N (hex digits beyond 9), `.` or `0` = empty; each digit becomes a given |
 | `clear` | remove all givens (the random target base stays) |
 | `quit` | exit |
 
@@ -47,15 +47,20 @@ require a current puzzle (`new`/`load` first).
   φ_ε(x) = −targetᵀ·x − ε · Σᵢ ( ln xᵢ + ln(1 − xᵢ) )    s.t.  A·x = b
   ```
 
-- μ-sweep along the central path: μ₀ = 1.0, μ ← μ / 10, warm-started Newton per step,
-  down to μ_min = 1e-9 (a `solve <eps>` argument overrides the stopping point).
+- μ-sweep along the central path: μ starts at 1.0 and is multiplied by 0.1 after each
+  warm-started Newton solve, until μ ≤ epsilon (the `solve [eps]` argument, default 1e-6),
+  but never below the numerical floor 1e-10.
 - Newton: max 50 iterations per μ, KKT residual tolerance 1e-10.
 - The log-barrier enforces `0 < x < 1`, so the bounds need no explicit handling.
 - Duality gap of the returned point ≈ `2·N³·ε`.
 - Integrality uses a **separate fixed tolerance** `INTEGRAL_TOL = 1e-6` (`|p − round(p)| ≤ tol`
   counts as decided), not ε. Optional branching on a fractional variable (`p = 0` / `p = 1`)
   if an integral solution is required.
-- Errors: `Infeasible` (contradictory givens), `NoIntegralSolution`, `Backend(String)`.
+- Errors: `Backend(String)` on numerical failure. Note: the pure rule system is always
+  feasible (givens enter softly through the target vector), so `Infeasible` /
+  `NoIntegralSolution` are only reachable via optional branching. Contradictory givens
+  instead show up as fractional probabilities and as flagged row/column conflicts in the
+  winner view.
 
 ## 4. Output views
 

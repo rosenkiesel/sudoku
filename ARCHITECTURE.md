@@ -109,9 +109,9 @@ SolveRequest {
 }
 ```
 
-The UI builds `target` from its givens: for a given `(x, y) = n`,
-`target[idx(x,y,n)] = 1.0` and `0.0` for the other digits of that cell; for empty cells a
-neutral value (e.g. 0.0 — the constraints do the work).
+The UI builds `target` from a random base (uniform in [-1,+1], filled by `rand`) plus its
+givens: for a given `(x, y) = n`, `target[idx(x,y,n)] += 10.0` on top of the base (see
+REQUIREMENTS.md §2). Without `rand` the base is zero — the constraints do the work.
 
 **Epsilon is the factor with which `log(x)` enters the objective** — the barrier weight μ
 on the central path:
@@ -122,8 +122,8 @@ on the central path:
 
 The log-barrier keeps `0 < x < 1` strictly, so the bounds need no explicit handling in the
 solver. The solver follows the central path `C = { x*(μ) : μ > 0 }` with a μ-sweep
-(ε₀, ε₀/τ, …) and warm-started Newton steps; the returned point `x*(ε)` has estimated
-duality gap ≈ `2·N³·ε`.
+(μ₀ = 1.0, then μ ← μ/10) and warm-started Newton steps, down to `max(ε, 1e-10)` (numerical
+floor); the returned point `x*(ε)` has estimated duality gap ≈ `2·N³·ε`.
 
 - ε small (e.g. 1e-6) → near the LP optimum: peaked distribution, ≈ 0/1 where decided → winner view.
 - ε large (e.g. 1.0) → near the analytic center of the feasible polytope: flat probabilities → probability view.
@@ -147,25 +147,32 @@ pub enum SolverError {
 ```
 
 - `CentralPathSolver`: primal-dual interior point with μ-sweep, implementation of 2.4.
+  The rule matrix `A` has rank `4·N² − 3` (the four rule families have equal total sums), so
+  the solver drops the three linearly dependent rows before forming the Newton Schur system
+  and adds a tiny Tikhonov term (`reg`) for numerical safety.
 - Future: `IlpSolver`, `CpSolver` — identical signature.
 
 ## 4. UI layer
 
 ```rust
 pub trait Ui {
-    fn render(&mut self, view: &View) -> io::Result<()>;
     fn next_command(&mut self) -> io::Result<Command>;
-    fn solve_request(&self, epsilon: f64) -> SolveRequest;   // givens → target vector
+    fn apply(&mut self, command: &Command) -> io::Result<()>;
+    fn solve_request(&self, epsilon: f64) -> Option<SolveRequest>;   // givens + base → target vector
+    fn set_assignment(&mut self, assignment: Option<Assignment>);
+    fn note(&mut self, message: &str);
+    fn render(&mut self) -> io::Result<()>;
 }
 
 pub enum Command {
     New { bx: usize, by: usize },   // start a puzzle of size (Bx, By)
+    Rand { seed: Option<u64> },     // fill the target base with uniform random in [-1,+1]
     Set { x: usize, y: usize, n: u8 },
     Unset { x: usize, y: usize },
     Show,
-    Solve,
+    Solve { epsilon: Option<f64> },
     View(ViewMode),
-    Load(String),        // N²-char string, '.' = empty
+    Load(String),        // N²-char string, '.' or '0' = empty
     Clear,
     Quit,
 }
@@ -178,7 +185,7 @@ pub enum ViewMode { Winner, Probabilities }
 
 ### 4.1 Output views
 
-`View { size, givens, assignment: Option<Assignment> }`
+The render functions receive `size`, the givens and the optional `Assignment`.
 
 1. **Winner** (`ViewMode::Winner`): per cell the winning digit = `argmax_n p(x, y, n)`.
    Afterwards every row and every column is checked for duplicate winners; rows/columns that
@@ -190,13 +197,13 @@ pub enum ViewMode { Winner, Probabilities }
 ## 5. App layer
 
 ```rust
-pub fn run<S: Solver, U: Ui>(mut ui: U, solver: S) -> io::Result<()>
+pub fn run<S: Solver, U: Ui>(mut ui: U, solver: &S) -> io::Result<()>
 ```
 
-Loop: `ui.render(view)` → `ui.next_command()`. On `Solve`: `build_system(size)` (rules + bounds
-only) → `ui.solve_request(epsilon)` → `solver.solve(...)` → store the `Assignment` in the view.
+Loop: `ui.render()` → `ui.next_command()`. On `Solve`: `build_system(size)` (rules + bounds
+only) → `ui.solve_request(epsilon)` → `solver.solve(...)` → `ui.set_assignment(...)`.
 
-## 6. Module layout (planned)
+## 6. Module layout
 
 ```text
 Cargo.toml
@@ -218,7 +225,8 @@ src/
   app.rs                  // run<S: Solver, U: Ui>
 tests/
   model.rs                // constraint counts for (3,3) and (2,3), index mapping, target vector
-  integration.rs          // 9×9 and 6×6 puzzles; contradiction -> Infeasible
+  integration.rs          // 9×9 and 6×6 puzzles solved exactly; contradictory givens stay
+                          // feasible (soft target) but are flagged as a row conflict
 ```
 
 ## 7. Test strategy
