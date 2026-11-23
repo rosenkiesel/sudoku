@@ -24,6 +24,21 @@ fn conflict_detection() {
 }
 
 #[test]
+fn grid_block_separator_spans_full_width() {
+    use sudoku_rs::ui::render;
+    let s = Size::new(2, 3).unwrap();
+    let mut out = Vec::new();
+    render::render_grid(&mut out, &s, 3, |x, y| format!("{}  ", (x + y) % 6 + 1)).unwrap();
+    let text = String::from_utf8(out).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 7); // 6 grid rows + 1 block separator (by = 3)
+    let w = lines[0].len();
+    assert_eq!(w, 3 * 6 + 5);
+    assert!(lines[3].chars().all(|c| c == '#'));
+    assert_eq!(lines[3].len(), w);
+}
+
+#[test]
 fn winners_argmax() {
     let s = Size::new(2, 3).unwrap();
     let mut values = vec![0.1; s.num_vars()];

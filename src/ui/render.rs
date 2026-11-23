@@ -97,7 +97,7 @@ pub fn render_grid(
     cell_text: impl Fn(usize, usize) -> String,
 ) -> io::Result<()> {
     let n = size.n();
-    let width = cell_width * n + size.block_columns() - 1;
+    let width = cell_width * n + (n - 1);
     for x in 0..n {
         if x > 0 && x % size.by == 0 {
             writeln!(w, "{}", "#".repeat(width))?;
