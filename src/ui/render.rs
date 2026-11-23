@@ -31,6 +31,36 @@ pub fn winners(size: &Size, values: &[f64]) -> Vec<u8> {
     out
 }
 
+/// Per-cell conflict flags, row-major: a cell is conflicting if its winner
+/// digit occurs more than once in its row or in its column.
+pub fn conflict_cells(size: &Size, wins: &[u8]) -> Vec<bool> {
+    let n = size.n();
+    let mut flags = vec![false; n * n];
+    for x in 0..n {
+        let mut count = vec![0_usize; n + 1];
+        for y in 0..n {
+            count[wins[x * n + y] as usize] += 1;
+        }
+        for y in 0..n {
+            if count[wins[x * n + y] as usize] > 1 {
+                flags[x * n + y] = true;
+            }
+        }
+    }
+    for y in 0..n {
+        let mut count = vec![0_usize; n + 1];
+        for x in 0..n {
+            count[wins[x * n + y] as usize] += 1;
+        }
+        for x in 0..n {
+            if count[wins[x * n + y] as usize] > 1 {
+                flags[x * n + y] = true;
+            }
+        }
+    }
+    flags
+}
+
 /// Rows/columns in which some digit occurs more than once among the winners.
 pub fn conflicts(size: &Size, wins: &[u8]) -> (Vec<usize>, Vec<usize>) {
     let n = size.n();
@@ -59,13 +89,15 @@ pub fn conflicts(size: &Size, wins: &[u8]) -> (Vec<usize>, Vec<usize>) {
 
 /// Grid view with `#` as block delimiter: vertical `#` between block columns,
 /// a `#` line between block rows, plain space between ordinary cells.
+/// `cell_width` is the fixed width of one cell's text.
 pub fn render_grid(
     w: &mut impl Write,
     size: &Size,
+    cell_width: usize,
     cell_text: impl Fn(usize, usize) -> String,
 ) -> io::Result<()> {
     let n = size.n();
-    let width = 2 * n + size.block_columns() - 1;
+    let width = cell_width * n + size.block_columns() - 1;
     for x in 0..n {
         if x > 0 && x % size.by == 0 {
             writeln!(w, "{}", "#".repeat(width))?;
@@ -82,8 +114,9 @@ pub fn render_grid(
     Ok(())
 }
 
-/// Winner view: argmax digit per cell (givens marked with `*`), then the
-/// rows/columns that contain conflicts are flagged.
+/// Winner view: argmax digit per cell. Givens get a `*` suffix, conflicting
+/// entries (winner digit duplicated in their row or column) a `c` suffix —
+/// both if both apply. Afterwards the conflicting rows/columns are listed.
 pub fn render_winner(
     w: &mut impl Write,
     size: &Size,
@@ -92,13 +125,19 @@ pub fn render_winner(
 ) -> io::Result<()> {
     let n = size.n();
     let wins = winners(size, values);
-    render_grid(w, size, |x, y| {
-        let d = wins[x * n + y];
+    let flags = conflict_cells(size, &wins);
+    render_grid(w, size, 3, |x, y| {
+        let mut s = format!("{}", wins[x * n + y]);
         if givens.contains_key(&(x, y)) {
-            format!("{d}*")
-        } else {
-            format!("{d} ")
+            s.push('*');
         }
+        if flags[x * n + y] {
+            s.push('c');
+        }
+        while s.len() < 3 {
+            s.push(' ');
+        }
+        s
     })?;
     let (rows, cols) = conflicts(size, &wins);
     writeln!(w, "conflicting rows: {rows:?}")?;

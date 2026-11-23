@@ -1,5 +1,5 @@
 use sudoku_rs::model::Size;
-use sudoku_rs::ui::render::{conflicts, winners};
+use sudoku_rs::ui::render::{conflict_cells, conflicts, winners};
 
 #[test]
 fn conflict_detection() {
@@ -16,6 +16,11 @@ fn conflict_detection() {
     let (rows, cols) = conflicts(&s, &wins);
     assert_eq!(rows, vec![0]);
     assert_eq!(cols, vec![0]);
+    // conflicting cells: (0,0) and (0,1) share digit 1 in row 0;
+    // (0,0) and (5,0) share digit 1 in column 0
+    let flags = conflict_cells(&s, &wins);
+    assert!(flags[0] && flags[1] && flags[5 * 6]);
+    assert_eq!(flags.iter().filter(|&&f| f).count(), 3);
 }
 
 #[test]

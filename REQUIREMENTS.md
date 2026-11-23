@@ -78,7 +78,9 @@ The console prints the current grid in this format after every command (`grid: â
 
 ### 4.1 `view winner`
 
-- Per cell the winning digit = `argmax_n p(x, y, n)`, rendered as a grid; givens are marked (e.g. `*` suffix).
+- Per cell the winning digit = `argmax_n p(x, y, n)`, rendered as a grid. Givens get a `*`
+  suffix; conflicting entries (winner digit occurring more than once in their row or column)
+  get a `c` suffix â€” both if both apply (`*c`).
   Block boundaries are drawn with `#`: a vertical `#` between block columns, a `#` line between block rows.
 - Afterwards every **row** and every **column** is checked for duplicate winners; a row/column
   in which any digit occurs more than once is flagged as erroneous (marked border/asterisk in

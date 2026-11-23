@@ -190,7 +190,8 @@ The render functions receive `size`, the givens and the optional `Assignment`.
 1. **Winner** (`ViewMode::Winner`): per cell the winning digit = `argmax_n p(x, y, n)`.
    Afterwards every row and every column is checked for duplicate winners; rows/columns that
    contain a conflict are flagged as erroneous. Grid rendering: block boundaries use `#`
-   (vertical `#` between block columns, `#` line between block rows).
+   (vertical `#` between block columns, `#` line between block rows); givens get a `*` suffix
+   and conflicting entries a `c` suffix in the grid.
 2. **Probabilities** (`ViewMode::Probabilities`): per cell a `by × bx` mini-grid; mini-cell
    `(i, j)` with `i ∈ 0..by`, `j ∈ 0..bx` shows the percentage of digit `i·bx + j + 1`
    (3×3 for 9×9, 3×2 for 6×6). Within a block, cells are delimited by `:` and cell rows by

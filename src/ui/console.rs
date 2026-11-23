@@ -15,7 +15,7 @@ commands:
   unset <x> <y>     remove the given at cell (x,y)
   load <grid>       load givens from a grid string (rows ';', block columns ',')
   solve [eps]       solve along the central path (default eps 1e-6)
-  view winner       argmax per cell + conflicting rows/columns (block borders '#')
+  view winner       argmax per cell; givens '*', conflicting entries 'c' (block borders '#')
   view probs        per-cell percentage mini-grid (cells ':' within a block, block borders '#')
   show              re-render
   clear             remove all givens
@@ -195,7 +195,7 @@ impl Ui for ConsoleUi {
                 render::render_winner(&mut w, &size, &self.givens, &a.values)
             }
             (Some(a), ViewMode::Probabilities) => render::render_probs(&mut w, &size, &a.values),
-            _ => render::render_grid(&mut w, &size, |x, y| match self.givens.get(&(x, y)) {
+            _ => render::render_grid(&mut w, &size, 2, |x, y| match self.givens.get(&(x, y)) {
                 Some(d) => format!("{d} "),
                 None => ". ".to_string(),
             }),
