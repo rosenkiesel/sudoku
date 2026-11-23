@@ -1,60 +1,70 @@
 # sudoku-rs
 
-Sudoku in Rust, modelliert als **Wahrscheinlichkeitsvektor** und gelöst per **linearer Programmierung (LP)**.
+Probabilistic Sudoku in Rust: cells are modeled as a probability vector, the rules are linear
+equations, and the solution is computed along the central path of the LP. Console UI first,
+abstracted behind traits so any other frontend can replace it later.
 
-Die Konsolen-Oberfläche ist über ein Trait abstrahiert, sodass später z. B. ein TUI oder ein Web-Frontend
-angebunden werden kann, ohne Modell oder Solver zu ändern. Details siehe [ARCHITECTURE.md](ARCHITECTURE.md).
+Repo-wide rules (language, layering, model contract) live in [AGENTS.md](AGENTS.md).
 
-## Datenmodell
-
-Für jede Zelle `(x, y)` (x = Zeile, y = Spalte, 0-basiert) und jede Ziffer `n` (1..=N) gibt es eine Variable:
-
-```text
-p(x, y, n) = Wahrscheinlichkeit, dass in Zelle (x, y) die Ziffer n eingetragen ist
-```
-
-Die Sudoku-Regeln werden als **lineare Gleichungen** über diese Variablen formuliert, z. B.:
+## Data model
 
 ```text
-∀ x, n :  1 == Σ_y p(x, y, n)        (jede Zeile enthält jede Ziffer genau einmal)
+p(x, y, n) = probability that cell (x, y) contains digit n
+            (x = row, y = column, 0-based; n = 1..=N; N = b²)
 ```
 
-Dazu die Bounds:
+Rules as linear equations, e.g.:
+
+```text
+∀ x, n :  1 == Σ_y p(x, y, n)          (each row contains each digit exactly once)
+```
+
+plus the bounds:
 
 ```text
 0.0 <= p(x, y, n) <= 1.0
 ```
 
-Alle Gleichungen (Zelle, Zeile, Spalte, Block, Givens) sind in [ARCHITECTURE.md](ARCHITECTURE.md) aufgeführt.
+The model stores **no givens** — that is the UI's job. The UI maps givens to a target vector
+`t ∈ [0,1]^(9·9·9)` (1.0 for a given digit, 0.0 for the other digits of that cell) and hands
+`t` plus an **epsilon** to the model, which solves
+
+```text
+minimize  -tᵀ·p   subject to   A·p = b,  0 <= p <= 1
+```
+
+along the central path (interior-point), stopping when the duality gap ≤ epsilon.
+
+## Output
+
+- per cell the **winner** (argmax of `p`) plus flagged **rows/columns that contain conflicts**, or
+- per cell a **3×3 mini-grid** with the percentage probability of each digit 1..=9.
+
+Details in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Status
 
-Dokumentation zuerst – die Implementierung folgt als Cargo-Projekt in diesem Verzeichnis:
+- [x] `README.md`, `ARCHITECTURE.md`, `AGENTS.md`
+- [ ] `model` – variables `p(x,y,n)`, constraints, `SolveRequest { target, epsilon }`
+- [ ] `solver` – central-path (interior-point) LP
+- [ ] `ui` – console REPL + the two output views
+- [ ] `app` – generic game loop over `Solver` and `Ui`
 
-- [x] `README.md`
-- [x] `ARCHITECTURE.md`
-- [ ] `model` – Puzzle, Variablen `p(x,y,n)`, Constraint-Generierung
-- [ ] `solver` – LP-Backend (+ Branch & Bound für fraktionale Lösungen)
-- [ ] `ui` – Konsolen-REPL (über `trait Ui` abstrahiert)
-- [ ] `app` – Game-Loop, generisch über `Solver` und `Ui`
-
-## Geplante Bedienung (Konsole)
+## Planned console usage
 
 ```text
 $ cargo run
-> set 0 0 5     # Zeile 0, Spalte 0 = 5 (Given eintragen)
-> set 0 1 3
-> show          # Brett anzeigen: feste Werte + Wahrscheinlichkeiten
-> solve         # LP lösen, eindeutige Zellen als Lösung übernehmen
-> prob 4 4      # Wahrscheinlichkeitsverteilung p(4,4,n) einer Zelle anzeigen
+> set 0 0 5     # row 0, col 0 = 5 (given; UI turns it into the target vector)
+> solve         # central-path solve
+> view winner   # argmax per cell + erroneous rows/cols marked
+> view probs    # 3x3 percentage grid per cell
 > load 530070600600195342098000060800060003400803001700020006060000280000419005000080079
-> clear         # alle Givens löschen
 > quit
 ```
 
-## Entwicklung
+## Development
 
 ```bash
-cargo test    # Unit- + Integrationstests
-cargo run     # Konsolen-Version
+cargo test    # unit + integration tests
+cargo run     # console version
 ```

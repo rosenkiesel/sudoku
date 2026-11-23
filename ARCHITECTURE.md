@@ -1,142 +1,150 @@
 # ARCHITECTURE.md
 
-## 1. Überblick
+## 1. Overview
 
-Vier Schichten, strikt getrennt. `app` kennt nur Traits, nie konkrete Implementierungen:
-
-```text
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│  ui          │      │  app         │      │  solver      │
-│  trait Ui    │◄────►│  Game-Loop   │◄────►│  trait Solver│
-│  ConsoleUi   │      │  (generisch) │      │  LpSolver    │
-└──────────────┘      └──────┬───────┘      └──────┬───────┘
-                             │                     │
-                             ▼                     ▼
-                    ┌───────────────────────────────────┐
-                    │  model (rein: kein I/O, kein LP)  │
-                    │  Puzzle, p(x,y,n), LinearSystem   │
-                    └───────────────────────────────────┘
-```
-
-- **model**: reine Daten + Constraint-Generierung. Kennt weder Konsole noch LP-Solver.
-- **solver**: löst ein `LinearSystem` zu einer Belegung aller Variablen.
-- **ui**: Ein-/Ausgabe. Kennt weder Modell-Details noch den Solver.
-- **app**: Game-Loop, generisch über `S: Solver` und `U: Ui` – Konsole heute, TUI/Web morgen.
-
-## 2. Datenmodell
-
-### 2.1 Parameter
-
-- `b`: Block-Kantenlänge (3 beim klassischen 9×9)
-- `N = b * b`: Gitter-Kantenlänge
-- Zellen `(x, y)` mit `x, y ∈ 0..N` (x = Zeile, y = Spalte)
-- Ziffern `n ∈ 1..=N`
-
-### 2.2 Variablen
-
-Eine Variable pro (Zelle, Ziffer):
+Four layers, strictly separated. `app` only knows traits, never concrete implementations:
 
 ```text
-p(x, y, n) ∈ [0, 1]   – Wahrscheinlichkeit, dass Zelle (x, y) die Ziffer n enthält
+┌──────────────┐      ┌──────────────┐      ┌────────────────────┐
+│  ui          │      │  app         │      │  solver            │
+│  trait Ui    │◄────►│  game loop   │◄────►│  trait Solver      │
+│  ConsoleUi   │      │  (generic)   │      │  CentralPathSolver │
+└──────────────┘      └──────┬───────┘      └─────────┬──────────┘
+                             │                        │
+                             ▼                        ▼
+                    ┌─────────────────────────────────────┐
+                    │  model (pure: no I/O, no solver)    │
+                    │  LinearSystem, SolveRequest         │
+                    └─────────────────────────────────────┘
 ```
 
-Anzahl: `N³` (729 bei 9×9). Flachindex in einem dichten Vektor:
+- **model**: pure data + constraint generation. Knows neither UI nor solver.
+- **solver**: turns a `LinearSystem` + `SolveRequest` into an `Assignment`.
+- **ui**: input/output. Owns the givens (user-entered clues), builds the target vector,
+  and renders the two output views. Knows neither model internals nor the solver.
+- **app**: generic game loop over `S: Solver` and `U: Ui` — console today, TUI/web later.
+
+## 2. Data model
+
+### 2.1 Parameters
+
+- `b`: block edge length (3 for classic 9×9)
+- `N = b * b`: grid edge length
+- cells `(x, y)` with `x, y ∈ 0..N` (x = row, y = column)
+- digits `n ∈ 1..=N`
+
+### 2.2 Variables
+
+One variable per (cell, digit):
+
+```text
+p(x, y, n) ∈ [0, 1]   – probability that cell (x, y) contains digit n
+```
+
+Count: `N³` (729 for 9×9). Flat index in a dense vector:
 
 ```text
 idx(x, y, n) = (x * N + y) * N + (n - 1)
 ```
 
-### 2.3 Lineares System
+### 2.3 Linear system
 
 ```text
 LinearSystem {
     num_vars: usize,
-    rows:     Vec<(SparseRow, f64)>,   // (Koeffizienten pro Spalte, rechte Seite b)
-    lower:    Vec<f64>,                 // untere Schranke pro Variable
-    upper:    Vec<f64>,                 // obere Schranke pro Variable
+    rows:     Vec<(SparseRow, f64)>,   // (coefficients per column, right-hand side b)
+    lower:    Vec<f64>,                 // lower bound per variable
+    upper:    Vec<f64>,                 // upper bound per variable
 }
 ```
 
-#### Gleichungen `A·p = b` (alle Koeffizienten 1.0)
+Equations `A·p = b` (all coefficients 1.0):
 
-1. **Zellensumme** – jede Zelle trägt genau eine Ziffer:
-
-   ```text
-   ∀ x, y :  Σ_n p(x, y, n) = 1                → N² Zeilen
-   ```
-
-2. **Zeilen-Regel** – jede Ziffer genau einmal pro Zeile:
+1. **Cell sum** — each cell carries exactly one digit:
 
    ```text
-   ∀ x, n :  Σ_y p(x, y, n) = 1                → N² Zeilen
+   ∀ x, y :  Σ_n p(x, y, n) = 1                              → N² rows
    ```
 
-3. **Spalten-Regel** – jede Ziffer genau einmal pro Spalte:
+2. **Row rule** — each digit exactly once per row:
 
    ```text
-   ∀ y, n :  Σ_x p(x, y, n) = 1                → N² Zeilen
+   ∀ x, n :  Σ_y p(x, y, n) = 1                              → N² rows
    ```
 
-4. **Block-Regel** – Block `(bx, by)` umfasst die Zellen `x ∈ [bx·b, (bx+1)·b)`, `y ∈ [by·b, (by+1)·b)`:
+3. **Column rule**:
 
    ```text
-   ∀ bx, by, n :  Σ_{(x,y) ∈ Block(bx,by)} p(x, y, n) = 1   → N² Zeilen
+   ∀ y, n :  Σ_x p(x, y, n) = 1                              → N² rows
    ```
 
-Insgesamt `4·N²` Gleichungen (324 bei 9×9).
+4. **Block rule** — block `(bx, by)` covers cells `x ∈ [bx·b, (bx+1)·b)`, `y ∈ [by·b, (by+1)·b)`:
 
-#### Givens (vorgegebene Ziffern)
+   ```text
+   ∀ bx, by, n :  Σ_{(x,y) ∈ Block(bx,by)} p(x, y, n) = 1     → N² rows
+   ```
 
-Nicht als eigene Zeile, sondern als **fixierte Bounds**:
+Total `4·N²` rows (324 for 9×9). Bounds: `0.0 <= p(x, y, n) <= 1.0` for every variable.
 
-- Given `(x, y) = n`: `lower[idx(x,y,n)] = upper[idx(x,y,n)] = 1.0`
-- und `lower = upper = 0.0` für alle `m ≠ n` in derselben Zelle.
+**No givens in the system.** Givens enter only through the target vector (2.4).
 
-#### Bounds
-
-Global für alle Variablen:
+### 2.4 Solve request: target vector + epsilon via central path
 
 ```text
-0.0 <= p(x, y, n) <= 1.0
+SolveRequest {
+    target:  Vec<f64>,   // length N³ (729 for 9×9)
+    epsilon: f64,        // termination tolerance + integrality threshold
+}
 ```
 
-### 2.4 Von der LP zur Lösung
+The UI builds `target` from its givens: for a given `(x, y) = n`,
+`target[idx(x,y,n)] = 1.0` and `0.0` for the other digits of that cell; for empty cells a
+neutral value (e.g. 0.0 — the constraints do the work).
 
-- Es handelt sich um ein reines Feasibility-Problem: Zielfunktion konstant 0, das LP liefert eine zulässige Belegung.
-- **Integralität:** Die Constraint-Matrix ist nicht total unimodular (es existieren fraktionale Latin Squares),
-  daher *kann* das LP-Optimum bei schwach eingeschränkten Rätseln fraktional sein. Strategie:
-  1. LP lösen; liegen alle Werte innerhalb ε ∈ {0, 1} → 0/1-Lösung gefunden.
-  2. Sonst **Branch & Bound**: eine fraktionale Variable wählen und verzweigen mit `p = 0` bzw. `p = 1`
-     (als zusätzliche Bounds), rekursiv weiterlösen.
-  Mit hinreichend vielen Givens ist Schritt 1 typischerweise direkt integral.
-- Die gefundene 0/1-Belegung wird gegen die Regeln verifiziert und als gelöste Zellen übernommen.
-  Eine Eindeutigkeitsprüfung (jede Zelle auf alternativen Wert testen) ist als optionale Erweiterung vorgesehen.
+The solver then computes a solution along the **central path** of the LP
 
-## 3. Solver-Schicht
+```text
+minimize  -targetᵀ·p   subject to   A·p = b,  0 <= p <= 1
+```
+
+using a primal-dual interior-point method: at each step take the point of the central path
+
+```text
+x(μ) = argmin { -targetᵀ·x - μ·( Σ ln xᵢ + Σ ln(1 - xᵢ) ) : A·x = b }
+```
+
+and decrease μ; stop when the duality gap ≤ **epsilon**.
+
+- If every `p` lies within epsilon of `{0, 1}` → integral solution: the digits with `p ≈ 1`.
+- Otherwise the fractional values *are* the probabilities (→ probability view); optionally
+  branch on a fractional variable (`p = 0` / `p = 1` as extra bounds) to force integrality.
+
+## 3. Solver layer
 
 ```rust
 pub trait Solver {
-    fn solve(&self, system: &LinearSystem) -> Result<Assignment, SolverError>;
+    fn solve(&self, system: &LinearSystem, request: &SolveRequest) -> Result<Assignment, SolverError>;
 }
 
-pub struct Assignment { pub values: Vec<f64> }   // Länge = num_vars
+pub struct Assignment { pub values: Vec<f64> }   // length = num_vars
 
 pub enum SolverError {
-    Infeasible,            // widersprüchliche Givens
-    NoIntegralSolution,    // Branch & Bound ohne 0/1-Lösung
-    Backend(String),       // Fehler des LP-Backends
+    Infeasible,            // contradictory input
+    NoIntegralSolution,    // branching found no 0/1 solution
+    Backend(String),       // error from the numerical backend
 }
 ```
 
-- `LpSolver`: LP-Backend (z. B. HiGHS über `good_lp`), implementiert Branch & Bound aus 2.4.
-- Zukünftig: `IlpSolver`, `CpSolver` – exakt dieselbe Signatur.
+- `CentralPathSolver`: interior-point implementation of 2.4.
+- Future: `IlpSolver`, `CpSolver` — identical signature.
 
-## 4. UI-Schicht
+## 4. UI layer
 
 ```rust
 pub trait Ui {
     fn render(&mut self, view: &View) -> io::Result<()>;
     fn next_command(&mut self) -> io::Result<Command>;
+    fn solve_request(&self, epsilon: f64) -> SolveRequest;   // givens → target vector
 }
 
 pub enum Command {
@@ -144,63 +152,73 @@ pub enum Command {
     Unset { x: usize, y: usize },
     Show,
     Solve,
-    Prob { x: usize, y: usize },
-    Load(String),        // 81-stelliger String, '.' = leer
+    View(ViewMode),
+    Load(String),        // 81-char string, '.' = empty
     Clear,
     Quit,
 }
+
+pub enum ViewMode { Winner, Probabilities }
 ```
 
-- `ConsoleUi`: REPL über stdin/stdout mit Prompt `>`.
-- Zukünftig: `TuiUi` (z. B. ratatui), `WebUi` – gleiche Signatur, `app` bleibt unverändert.
-- `View`: Snapshot des Zustands (Givens, letzte Lösung, Wahrscheinlichkeiten), den das UI nur rendert.
+- `ConsoleUi`: stdin/stdout REPL with `>` prompt; owns the givens.
+- Future: `TuiUi` (e.g. ratatui), `WebUi` — same trait, `app` unchanged.
 
-## 5. App-Schicht
+### 4.1 Output views
+
+`View { givens, assignment: Option<Assignment> }`
+
+1. **Winner** (`ViewMode::Winner`): per cell the winning digit = `argmax_n p(x, y, n)`.
+   Afterwards every row and every column is checked for duplicate winners; rows/columns that
+   contain a conflict are flagged as erroneous (e.g. marked border / asterisk).
+2. **Probabilities** (`ViewMode::Probabilities`): per cell a 3×3 mini-grid; mini-cell `(i, j)`
+   shows the percentage of digit `3i + j + 1` from `p(x, y, ·)` (a `b×b` mini-grid for general
+   `N = b²`).
+
+## 5. App layer
 
 ```rust
 pub fn run<S: Solver, U: Ui>(mut ui: U, solver: S, puzzle: &mut Puzzle) -> io::Result<()>
 ```
 
-Ablauf: `loop { ui.render(&view); match ui.next_command()? { ... } }`
+Loop: `ui.render(view)` → `ui.next_command()`. On `Solve`: `build_system()` (rules + bounds only)
+→ `ui.solve_request(epsilon)` → `solver.solve(...)` → store the `Assignment` in the view.
 
-- `Solve` baut über `model::constraints::build_system(puzzle)` das `LinearSystem`, ruft den Solver auf
-  und übernimmt die 0/1-Werte als gelöste Zellen in die Ansicht.
-- `Prob x y` zeigt die Verteilung `p(x, y, :)` aus der letzten Assignment an.
-
-## 6. Modul-Layout (geplant)
+## 6. Module layout (planned)
 
 ```text
 Cargo.toml
 src/
-  main.rs                 // Wiring: ConsoleUi + LpSolver -> app::run
+  main.rs                 // wiring: ConsoleUi + CentralPathSolver -> app::run
   lib.rs
   model/
-    mod.rs                // Puzzle, Cell, Digit, b/N, Validierung der Givens
-    variables.rs          // idx(x, y, n), num_vars, Iteration über Variablen
-    constraints.rs        // build_system(&Puzzle) -> LinearSystem
+    mod.rs                // b/N, Cell, Digit, validation
+    variables.rs          // idx(x, y, n), num_vars, iteration
+    constraints.rs        // build_system() -> LinearSystem   (rules + bounds only)
+    request.rs            // SolveRequest { target, epsilon }
   solver/
     mod.rs                // trait Solver, Assignment, SolverError
-    lp.rs                 // LpSolver: LP + Branch & Bound
+    central_path.rs       // interior-point / central path
   ui/
-    mod.rs                // trait Ui, Command, View
-    console.rs            // ConsoleUi
+    mod.rs                // trait Ui, Command, ViewMode, View
+    console.rs            // ConsoleUi: REPL, owns givens, builds target vector
+    render.rs             // the two output views
   app.rs                  // run<S: Solver, U: Ui>
 tests/
-  model.rs                // Constraint-Anzahlen, Index-Mapping, Givens-Bounds
-  integration.rs          // klassisches Rätsel -> Lösung; leeres Brett; Widerspruch -> Infeasible
+  model.rs                // constraint counts, index mapping, target vector from givens
+  integration.rs          // classic puzzle -> integral solution; contradiction -> Infeasible
 ```
 
-## 7. Teststrategie
+## 7. Test strategy
 
-- **Unit:** `num_vars == N³`, Zeilenzahl `== 4·N²`, Index-Mapping (Hin- und Rückweg),
-  Givens setzen fixiert die Bounds korrekt, ungültige Givens werden abgelehnt.
-- **Integration:** klassisches 9×9-Rätsel mit bekannter Lösung, 4×4-Rätsel,
-  leeres Brett (feasible, ggf. fraktional → Branching-Pfad), widersprüchliche Givens → `Infeasible`.
+- **Unit:** `num_vars == N³`, rows `== 4·N²`, index mapping roundtrip, givens → target vector.
+- **Integration:** classic 9×9 puzzle with known solution, 4×4 puzzle, empty board (feasible,
+  possibly fractional → probability view), contradictory givens → `Infeasible`,
+  per-cell probabilities sum to 1.
 
-## 8. Erweiterungen (Ausblick)
+## 8. Extensions (outlook)
 
-- Andere Gittergrößen (4×4, 16×16) über Laufzeit-Parameter statt Konstanten.
-- Weiteres UI (TUI via ratatui, Web via axum) – nur neue `Ui`-Implementierung.
-- Anderer Solver (ILP, CP-SAT) – nur neue `Solver`-Implementierung.
-- Wahrscheinlichkeits-Anzeige pro Zelle direkt aus der LP-Lösung (im Modell bereits vorgesehen).
-- Schrittmodus: Constraints einzeln hinzufügen und das LP jeweils neu lösen (Visualisierung des Propagierens).
+- Other grid sizes (4×4, 16×16) via runtime parameter instead of constants.
+- More frontends (TUI via ratatui, web via axum) — new `Ui` impl only.
+- Other solvers (ILP, CP-SAT) — new `Solver` impl only.
+- Step mode: add constraints incrementally and re-solve (visualize propagation).
