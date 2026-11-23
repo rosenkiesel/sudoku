@@ -7,6 +7,22 @@ use std::io::{self, BufRead, Write};
 pub const GIVEN_WEIGHT: f64 = 10.0;
 pub const DEFAULT_SEED: u64 = 0x5EED_5EED_5EED_5EED;
 
+const HELP: &str = "\
+commands:
+  new <bx> <by>     start a puzzle of size (Bx,By) — e.g. new 3 3 (9x9) or new 2 3 (6x6)
+  rand [seed]       fill the target base with uniform random in [-1,+1]
+  set <x> <y> <n>   add a given: target[idx(x,y,n)] += 10.0 on top of the base
+  unset <x> <y>     remove the given at cell (x,y)
+  load <grid>       load givens from a grid string (rows ';', block columns ',')
+  solve [eps]       solve along the central path (default eps 1e-6)
+  view winner       argmax per cell + conflicting rows/columns (block borders '#')
+  view probs        per-cell percentage mini-grid (cells ':', cell rows '-')
+  show              re-render
+  clear             remove all givens
+  help              this text
+  quit              exit
+grid string example (9x9): 530,070,000;600,195,000;098,000,060;...";
+
 /// SplitMix64 — small deterministic RNG so the project stays dependency-free.
 struct Rng(u64);
 
@@ -135,6 +151,7 @@ impl Ui for ConsoleUi {
                 self.assignment = None;
             }
             Command::View(mode) => self.view = *mode,
+            Command::Help => self.note(HELP),
             Command::Show | Command::Solve { .. } | Command::Quit => {}
         }
         Ok(())
@@ -238,6 +255,7 @@ fn parse_command(line: &str) -> Result<Command, String> {
             _ => Err("usage: view winner|probs".to_string()),
         },
         "show" => Ok(Command::Show),
+        "help" | "?" => Ok(Command::Help),
         "load" => match tokens.get(1) {
             Some(s) => Ok(Command::Load((*s).to_string())),
             None => Err("usage: load <string>".to_string()),

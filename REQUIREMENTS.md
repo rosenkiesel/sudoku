@@ -23,6 +23,7 @@ REPL continues.
 | `show` | re-render: grid, grid string and header |
 | `load <string>` | grid in string format (§1.1); each digit becomes a given |
 | `clear` | remove all givens (the random target base stays) |
+| `help` | print the command list |
 | `quit` | exit |
 
 Validation: coordinates and digits must be in range for the current size; `solve`/`view`
@@ -78,6 +79,7 @@ The console prints the current grid in this format after every command (`grid: �
 ### 4.1 `view winner`
 
 - Per cell the winning digit = `argmax_n p(x, y, n)`, rendered as a grid; givens are marked (e.g. `*` suffix).
+  Block boundaries are drawn with `#`: a vertical `#` between block columns, a `#` line between block rows.
 - Afterwards every **row** and every **column** is checked for duplicate winners; a row/column
   in which any digit occurs more than once is flagged as erroneous (marked border/asterisk in
   the console output). Blocks are not flagged (rows/columns only, per spec).
@@ -85,7 +87,8 @@ The console prints the current grid in this format after every command (`grid: �
 ### 4.2 `view probs`
 
 - Per cell a `by × bx` mini-grid of percentages: mini-cell `(i, j)` with `i ∈ 0..by`,
-  `j ∈ 0..bx` shows `100 · p(x, y, i·bx + j + 1)`.
+  `j ∈ 0..bx` shows `100 · p(x, y, i·bx + j + 1)`. Cells are delimited by `:` within a row
+  and by `-` lines between cell rows.
 - 9×9 → 3×3 mini-grid with digits 1..9 as `3i + j + 1`; 6×6 `(Bx,By) = (2,3)` → 3×2 mini-grid
   with digits 1..6 as `2i + j + 1`.
 

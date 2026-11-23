@@ -10,7 +10,7 @@ pub const DEFAULT_EPSILON: f64 = 1e-6;
 pub fn run<S: Solver, U: Ui>(mut ui: U, solver: &S) -> io::Result<()> {
     ui.note(
         "sudoku-rs | commands: new <bx> <by> | rand [seed] | set <x> <y> <n> | unset <x> <y> | \
-         load <str> | solve [eps] | view winner|probs | show | clear | quit",
+         load <str> | solve [eps] | view winner|probs | show | clear | help | quit",
     );
     ui.render()?;
     loop {

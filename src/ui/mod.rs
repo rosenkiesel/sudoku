@@ -18,6 +18,7 @@ pub enum Command {
     Set { x: usize, y: usize, n: u8 },
     Unset { x: usize, y: usize },
     Show,
+    Help,
     Solve { epsilon: Option<f64> },
     View(ViewMode),
     Load(String),

@@ -57,6 +57,8 @@ pub fn conflicts(size: &Size, wins: &[u8]) -> (Vec<usize>, Vec<usize>) {
     (bad_rows, bad_cols)
 }
 
+/// Grid view with `#` as block delimiter: vertical `#` between block columns,
+/// a `#` line between block rows, plain space between ordinary cells.
 pub fn render_grid(
     w: &mut impl Write,
     size: &Size,
@@ -66,14 +68,13 @@ pub fn render_grid(
     let width = 2 * n + size.block_columns() - 1;
     for x in 0..n {
         if x > 0 && x % size.by == 0 {
-            writeln!(w, "{}", "-".repeat(width))?;
+            writeln!(w, "{}", "#".repeat(width))?;
         }
         let mut line = String::new();
         for y in 0..n {
-            if y > 0 && y % size.bx == 0 {
-                line.push('|');
+            if y > 0 {
+                line.push(if y % size.bx == 0 { '#' } else { ' ' });
             }
-            line.push(' ');
             line.push_str(&cell_text(x, y));
         }
         writeln!(w, "{line}")?;
@@ -105,28 +106,33 @@ pub fn render_winner(
     Ok(())
 }
 
-/// Probability view: per cell a `by x bx` mini-grid with the percentage of
-/// each digit (mini-cell (i, j) shows digit i*bx + j + 1).
+/// Probability view: per cell a `by × bx` mini-grid with the percentage of
+/// each digit (mini-cell (i, j) shows digit i*bx + j + 1). Cells are
+/// delimited by `:` within a row and by `-` lines between cell rows.
 pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Result<()> {
     let n = size.n();
+    let mut width = 0_usize;
     for x in 0..n {
         for i in 0..size.by {
-            let mut line = String::new();
+            let mut cells = Vec::with_capacity(n);
             for y in 0..n {
-                if y > 0 && y % size.bx == 0 {
-                    line.push('|');
-                }
+                let mut cell = String::new();
                 for j in 0..size.bx {
                     let d = (i * size.bx + j + 1) as u8;
                     let p = values[variables::idx(size, x, y, d)];
-                    line.push_str(&format!(" {:>3.0}%", 100.0 * p));
+                    if j > 0 {
+                        cell.push(' ');
+                    }
+                    cell.push_str(&format!("{:>3.0}%", 100.0 * p));
                 }
-                line.push(' ');
+                cells.push(cell);
             }
+            let line = cells.join(":");
+            width = width.max(line.len());
             writeln!(w, "{line}")?;
         }
-        if x + 1 < n && (x + 1) % size.by == 0 {
-            writeln!(w, "{}", "-".repeat(6 * n + size.block_columns() - 1))?;
+        if x + 1 < n {
+            writeln!(w, "{}", "-".repeat(width))?;
         }
     }
     Ok(())
