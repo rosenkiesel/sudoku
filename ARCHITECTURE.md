@@ -14,7 +14,7 @@ Four layers, strictly separated. `app` only knows traits, never concrete impleme
                              ▼                        ▼
                     ┌─────────────────────────────────────┐
                     │  model (pure: no I/O, no solver)    │
-                    │  LinearSystem, SolveRequest         │
+                    │  Size, LinearSystem, SolveRequest   │
                     └─────────────────────────────────────┘
 ```
 
@@ -26,12 +26,24 @@ Four layers, strictly separated. `app` only knows traits, never concrete impleme
 
 ## 2. Data model
 
-### 2.1 Parameters
+### 2.1 Size: `(Bx, By)` instead of a fixed 9×9
 
-- `b`: block edge length (3 for classic 9×9)
-- `N = b * b`: grid edge length
-- cells `(x, y)` with `x, y ∈ 0..N` (x = row, y = column)
-- digits `n ∈ 1..=N`
+The puzzle size is given as **block dimensions**:
+
+```text
+Size { bx, by }     // block = bx columns × by rows
+N  = bx * by        // grid edge length; digits are 1..=N
+grid: N × N cells, (x, y) with x = row, y = column, 0-based
+blocks: arranged in a (by × bx) pattern
+block (cx, cy):  cx ∈ 0..by, cy ∈ 0..bx
+                 columns y ∈ [cx*bx, (cx+1)*bx)
+                 rows    x ∈ [cy*by, (cy+1)*by)
+```
+
+Examples:
+
+- classic: `Size { bx: 3, by: 3 }` → N = 9, 9×9 grid, 3×3 blocks in a 3×3 pattern, 729 variables
+- 6×6 ("6er"): `Size { bx: 2, by: 3 }` → N = 6, 6×6 grid, 2×3 blocks in a 3×2 pattern, 216 variables
 
 ### 2.2 Variables
 
@@ -41,7 +53,7 @@ One variable per (cell, digit):
 p(x, y, n) ∈ [0, 1]   – probability that cell (x, y) contains digit n
 ```
 
-Count: `N³` (729 for 9×9). Flat index in a dense vector:
+Count: `N³`. Flat index in a dense vector:
 
 ```text
 idx(x, y, n) = (x * N + y) * N + (n - 1)
@@ -78,22 +90,22 @@ Equations `A·p = b` (all coefficients 1.0):
    ∀ y, n :  Σ_x p(x, y, n) = 1                              → N² rows
    ```
 
-4. **Block rule** — block `(bx, by)` covers cells `x ∈ [bx·b, (bx+1)·b)`, `y ∈ [by·b, (by+1)·b)`:
+4. **Block rule** — block `(cx, cy)` as defined in 2.1 (contains N cells):
 
    ```text
-   ∀ bx, by, n :  Σ_{(x,y) ∈ Block(bx,by)} p(x, y, n) = 1     → N² rows
+   ∀ cx, cy, n :  Σ_{(x,y) ∈ Block(cx,cy)} p(x, y, n) = 1    → N² rows
    ```
 
-Total `4·N²` rows (324 for 9×9). Bounds: `0.0 <= p(x, y, n) <= 1.0` for every variable.
+Total `4·N²` rows (144 for 6×6, 324 for 9×9). Bounds: `0.0 <= p(x, y, n) <= 1.0` for every
+variable. **No givens in the system** — givens enter only through the target vector (2.4).
 
-**No givens in the system.** Givens enter only through the target vector (2.4).
-
-### 2.4 Solve request: target vector + epsilon via central path
+### 2.4 Solve request: target vector + epsilon (barrier weight) via central path
 
 ```text
 SolveRequest {
-    target:  Vec<f64>,   // length N³ (729 for 9×9)
-    epsilon: f64,        // termination tolerance + integrality threshold
+    size:    Size,
+    target:  Vec<f64>,   // length N³
+    epsilon: f64,        // barrier weight μ > 0
 }
 ```
 
@@ -101,23 +113,22 @@ The UI builds `target` from its givens: for a given `(x, y) = n`,
 `target[idx(x,y,n)] = 1.0` and `0.0` for the other digits of that cell; for empty cells a
 neutral value (e.g. 0.0 — the constraints do the work).
 
-The solver then computes a solution along the **central path** of the LP
+**Epsilon is the factor with which `log(x)` enters the objective** — the barrier weight μ
+on the central path:
 
 ```text
-minimize  -targetᵀ·p   subject to   A·p = b,  0 <= p <= 1
+φ_ε(x) = −targetᵀ·x − ε · Σᵢ ( ln xᵢ + ln(1 − xᵢ) )    s.t.  A·x = b
 ```
 
-using a primal-dual interior-point method: at each step take the point of the central path
+The log-barrier keeps `0 < x < 1` strictly, so the bounds need no explicit handling in the
+solver. The solver follows the central path `C = { x*(μ) : μ > 0 }` with a μ-sweep
+(ε₀, ε₀/τ, …) and warm-started Newton steps; the returned point `x*(ε)` has estimated
+duality gap ≈ `2·N³·ε`.
 
-```text
-x(μ) = argmin { -targetᵀ·x - μ·( Σ ln xᵢ + Σ ln(1 - xᵢ) ) : A·x = b }
-```
-
-and decrease μ; stop when the duality gap ≤ **epsilon**.
-
-- If every `p` lies within epsilon of `{0, 1}` → integral solution: the digits with `p ≈ 1`.
-- Otherwise the fractional values *are* the probabilities (→ probability view); optionally
-  branch on a fractional variable (`p = 0` / `p = 1` as extra bounds) to force integrality.
+- ε small (e.g. 1e-6) → near the LP optimum: peaked distribution, ≈ 0/1 where decided → winner view.
+- ε large (e.g. 1.0) → near the analytic center of the feasible polytope: flat probabilities → probability view.
+- Integrality classification / optional branching (`p = 0` / `p = 1` as extra bounds) uses a
+  **separate fixed tolerance**, not ε.
 
 ## 3. Solver layer
 
@@ -135,7 +146,7 @@ pub enum SolverError {
 }
 ```
 
-- `CentralPathSolver`: interior-point implementation of 2.4.
+- `CentralPathSolver`: primal-dual interior point with μ-sweep, implementation of 2.4.
 - Future: `IlpSolver`, `CpSolver` — identical signature.
 
 ## 4. UI layer
@@ -148,12 +159,13 @@ pub trait Ui {
 }
 
 pub enum Command {
+    New { bx: usize, by: usize },   // start a puzzle of size (Bx, By)
     Set { x: usize, y: usize, n: u8 },
     Unset { x: usize, y: usize },
     Show,
     Solve,
     View(ViewMode),
-    Load(String),        // 81-char string, '.' = empty
+    Load(String),        // N²-char string, '.' = empty
     Clear,
     Quit,
 }
@@ -161,28 +173,28 @@ pub enum Command {
 pub enum ViewMode { Winner, Probabilities }
 ```
 
-- `ConsoleUi`: stdin/stdout REPL with `>` prompt; owns the givens.
+- `ConsoleUi`: stdin/stdout REPL with `>` prompt; owns the current `Size` and the givens.
 - Future: `TuiUi` (e.g. ratatui), `WebUi` — same trait, `app` unchanged.
 
 ### 4.1 Output views
 
-`View { givens, assignment: Option<Assignment> }`
+`View { size, givens, assignment: Option<Assignment> }`
 
 1. **Winner** (`ViewMode::Winner`): per cell the winning digit = `argmax_n p(x, y, n)`.
    Afterwards every row and every column is checked for duplicate winners; rows/columns that
    contain a conflict are flagged as erroneous (e.g. marked border / asterisk).
-2. **Probabilities** (`ViewMode::Probabilities`): per cell a 3×3 mini-grid; mini-cell `(i, j)`
-   shows the percentage of digit `3i + j + 1` from `p(x, y, ·)` (a `b×b` mini-grid for general
-   `N = b²`).
+2. **Probabilities** (`ViewMode::Probabilities`): per cell a `by × bx` mini-grid; mini-cell
+   `(i, j)` with `i ∈ 0..by`, `j ∈ 0..bx` shows the percentage of digit `i·bx + j + 1`
+   (3×3 for 9×9, 3×2 for 6×6).
 
 ## 5. App layer
 
 ```rust
-pub fn run<S: Solver, U: Ui>(mut ui: U, solver: S, puzzle: &mut Puzzle) -> io::Result<()>
+pub fn run<S: Solver, U: Ui>(mut ui: U, solver: S) -> io::Result<()>
 ```
 
-Loop: `ui.render(view)` → `ui.next_command()`. On `Solve`: `build_system()` (rules + bounds only)
-→ `ui.solve_request(epsilon)` → `solver.solve(...)` → store the `Assignment` in the view.
+Loop: `ui.render(view)` → `ui.next_command()`. On `Solve`: `build_system(size)` (rules + bounds
+only) → `ui.solve_request(epsilon)` → `solver.solve(...)` → store the `Assignment` in the view.
 
 ## 6. Module layout (planned)
 
@@ -192,33 +204,34 @@ src/
   main.rs                 // wiring: ConsoleUi + CentralPathSolver -> app::run
   lib.rs
   model/
-    mod.rs                // b/N, Cell, Digit, validation
+    mod.rs                // Size { bx, by }, N = bx*by, Cell, Digit, validation
     variables.rs          // idx(x, y, n), num_vars, iteration
-    constraints.rs        // build_system() -> LinearSystem   (rules + bounds only)
-    request.rs            // SolveRequest { target, epsilon }
+    constraints.rs        // build_system(size) -> LinearSystem   (rules + bounds only)
+    request.rs            // SolveRequest { size, target, epsilon }
   solver/
     mod.rs                // trait Solver, Assignment, SolverError
-    central_path.rs       // interior-point / central path
+    central_path.rs       // interior point, μ-sweep along the central path
   ui/
     mod.rs                // trait Ui, Command, ViewMode, View
-    console.rs            // ConsoleUi: REPL, owns givens, builds target vector
+    console.rs            // ConsoleUi: REPL, owns size + givens, builds target vector
     render.rs             // the two output views
   app.rs                  // run<S: Solver, U: Ui>
 tests/
-  model.rs                // constraint counts, index mapping, target vector from givens
-  integration.rs          // classic puzzle -> integral solution; contradiction -> Infeasible
+  model.rs                // constraint counts for (3,3) and (2,3), index mapping, target vector
+  integration.rs          // 9×9 and 6×6 puzzles; contradiction -> Infeasible
 ```
 
 ## 7. Test strategy
 
-- **Unit:** `num_vars == N³`, rows `== 4·N²`, index mapping roundtrip, givens → target vector.
-- **Integration:** classic 9×9 puzzle with known solution, 4×4 puzzle, empty board (feasible,
-  possibly fractional → probability view), contradictory givens → `Infeasible`,
+- **Unit:** for `Size{3,3}` and `Size{2,3}`: `num_vars == N³`, rows `== 4·N²`, block coverage
+  (every cell in exactly one block), index mapping roundtrip, givens → target vector.
+- **Integration:** classic 9×9 puzzle with known solution, a 6×6 puzzle, empty board
+  (feasible, possibly fractional → probability view), contradictory givens → `Infeasible`,
   per-cell probabilities sum to 1.
 
 ## 8. Extensions (outlook)
 
-- Other grid sizes (4×4, 16×16) via runtime parameter instead of constants.
 - More frontends (TUI via ratatui, web via axum) — new `Ui` impl only.
 - Other solvers (ILP, CP-SAT) — new `Solver` impl only.
 - Step mode: add constraints incrementally and re-solve (visualize propagation).
+- Rectangular grids (Nx ≠ Ny) if ever needed — the block rule generalizes directly.
