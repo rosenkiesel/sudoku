@@ -89,9 +89,10 @@ The console prints the current grid in this format after every command (`grid: �
 ### 4.2 `view probs`
 
 - Per cell a `by × bx` mini-grid of percentages: mini-cell `(i, j)` with `i ∈ 0..by`,
-  `j ∈ 0..bx` shows `100 · p(x, y, i·bx + j + 1)`. Within a block, cells are delimited by
-  `:` and cell rows by `-` lines; block boundaries stay `#` (vertical `#` between block
-  columns, `#` line between block rows).
+  `j ∈ 0..bx` shows `100 · p(x, y, i·bx + j + 1)` as `<n>%`; mini-cells within a cell are
+  separated by exactly one space (`% `). Within a block, cells are delimited by `:` and
+  cell rows by `-` lines; block boundaries stay `#` — so the block boundary reads `%#`
+  (vertical `#` between block columns, `#` line between block rows).
 - 9×9 → 3×3 mini-grid with digits 1..9 as `3i + j + 1`; 6×6 `(Bx,By) = (2,3)` → 3×2 mini-grid
   with digits 1..6 as `2i + j + 1`.
 

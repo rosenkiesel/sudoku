@@ -165,7 +165,9 @@ pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Resu
                         if j > 0 {
                             cell.push(' ');
                         }
-                        cell.push_str(&format!("{:>3.0}%", 100.0 * p));
+                        // "<n>%" without padding: mini-cells are separated by
+                        // exactly "% ", block boundaries become "%#"
+                        cell.push_str(&format!("{:.0}%", 100.0 * p));
                     }
                     cells.push(cell);
                 }
