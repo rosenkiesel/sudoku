@@ -39,6 +39,20 @@ fn grid_block_separator_spans_full_width() {
 }
 
 #[test]
+fn probs_console_display_scales_by_099() {
+    use sudoku_rs::ui::render;
+    let s = Size::new(2, 3).unwrap();
+    let mut values = vec![0.0; s.num_vars()];
+    // raw solver value 1.0: the console display scales by 0.99 -> "99%"
+    values[sudoku_rs::model::variables::idx(&s, 0, 0, 1)] = 1.0;
+    let mut out = Vec::new();
+    render::render_probs(&mut out, &s, &values).unwrap();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains("99%"));
+    assert!(!text.contains("100%"));
+}
+
+#[test]
 fn winners_argmax() {
     let s = Size::new(2, 3).unwrap();
     let mut values = vec![0.1; s.num_vars()];

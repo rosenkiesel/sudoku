@@ -4,6 +4,12 @@ use std::io::{self, Write};
 
 pub type Givens = BTreeMap<(usize, usize), u8>;
 
+/// Console-display-only scaling: probabilities are shown as `99 * p` percent,
+/// so every mini-cell is at most `99%` (3 chars) and `100%` never occurs.
+/// The model/solver values stay raw 0..1 — other UIs (e.g. a future HTML
+/// frontend) decide themselves how to render 0..100% (e.g. color-coded).
+pub const DISPLAY_SCALE: f64 = 0.99;
+
 /// Winning digit of a cell: argmax over n of p(x, y, n).
 pub fn winner(size: &Size, values: &[f64], x: usize, y: usize) -> u8 {
     let n = size.n();
@@ -166,8 +172,10 @@ pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Resu
                             cell.push(' ');
                         }
                         // "<n>%" without padding: mini-cells are separated by
-                        // exactly "% ", block boundaries become "%#"
-                        cell.push_str(&format!("{:.0}%", 100.0 * p));
+                        // exactly "% ", block boundaries become "%#"; the console
+                        // scales by DISPLAY_SCALE = 0.99 for display, so "100%"
+                        // never occurs and every mini-cell is 3 chars
+                        cell.push_str(&format!("{:.0}%", 100.0 * p * DISPLAY_SCALE));
                     }
                     cells.push(cell);
                 }

@@ -89,8 +89,11 @@ The console prints the current grid in this format after every command (`grid: �
 ### 4.2 `view probs`
 
 - Per cell a `by × bx` mini-grid of percentages: mini-cell `(i, j)` with `i ∈ 0..by`,
-  `j ∈ 0..bx` shows `100 · p(x, y, i·bx + j + 1)` as `<n>%`; mini-cells within a cell are
-  separated by exactly one space (`% `). Within a block, cells are delimited by `:` and
+  `j ∈ 0..bx` shows the percentage as `<n>%`; mini-cells within a cell are separated by
+  exactly one space (`% `). The console display scales probabilities by `0.99`
+  (`DISPLAY_SCALE`, console-render only), so `100%` never occurs and every mini-cell stays
+  3 chars. The model/solver/`app` deliver the raw 0..1 values — a different UI (e.g. a
+  future HTML frontend) decides itself how to render 0..100% (e.g. color-coded). Within a block, cells are delimited by `:` and
   cell rows by `-` lines; block boundaries stay `#` — so the block boundary reads `%#`
   (vertical `#` between block columns, `#` line between block rows).
 - 9×9 → 3×3 mini-grid with digits 1..9 as `3i + j + 1`; 6×6 `(Bx,By) = (2,3)` → 3×2 mini-grid

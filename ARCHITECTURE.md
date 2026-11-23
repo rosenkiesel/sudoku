@@ -205,6 +205,8 @@ pub fn run<S: Solver, U: Ui>(mut ui: U, solver: &S) -> io::Result<()>
 
 Loop: `ui.render()` → `ui.next_command()`. On `Solve`: `build_system(size)` (rules + bounds
 only) → `ui.solve_request(epsilon)` → `solver.solve(...)` → `ui.set_assignment(...)`.
+The assignment carries the raw 0..1 values; display scaling (console: ×0.99 so `100%`
+never occurs) is a rendering detail of each UI, not of the model.
 
 ## 6. Module layout
 
