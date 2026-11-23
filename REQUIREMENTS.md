@@ -14,10 +14,12 @@ REPL continues.
 | Command | Effect |
 |---|---|
 | `new <bx> <by>` | start a new puzzle of size `(Bx, By)` (N = Bx·By); resets givens, target base and solution |
-| `rand [seed]` | fill the **entire target vector** with uniform random values in **[-1, +1]**; optional seed for reproducibility; resets givens |
+| `rand [seed]` | fill the **entire target base** with uniform random values in **[-1, +1]**; optional seed for reproducibility; givens are kept |
 | `set <x> <y> <n>` | add a given: `target[idx(x,y,n)] += 10.0`, on top of the current value (e.g. the random base). At most one given per cell; setting an occupied cell replaces the old given |
 | `unset <x> <y>` | remove the given at cell `(x, y)` |
-| `solve [eps]` | build `LinearSystem` + `SolveRequest` and run the central-path solver; default `eps = 1e-6` |
+| `solve` | build `LinearSystem` + `SolveRequest` and run the central-path solver down to the **current** epsilon |
+| `eps+` | multiply the current epsilon by 10 (max 1.0) |
+| `eps-` | divide the current epsilon by 10 (min 1e-12) |
 | `view winner` | winner view (§4.1) |
 | `view probs` | probability view (§4.2) |
 | `show` | re-render: grid, grid string and header |
@@ -60,8 +62,9 @@ The console prints the current grid in this format after every command (`grid: �
   ```
 
 - μ-sweep along the central path: μ starts at 1.0 and is multiplied by 0.1 after each
-  warm-started Newton solve, until μ ≤ epsilon (the `solve [eps]` argument, default 1e-6),
-  but never below the numerical floor 1e-10.
+  warm-started Newton solve, until μ ≤ epsilon. The epsilon is UI state (default 1e-6,
+  shown in the header), changed only via `eps+` / `eps-` — `solve` never modifies it —
+  and never below the numerical floor 1e-10.
 - Newton: max 50 iterations per μ, KKT residual tolerance 1e-10.
 - The log-barrier enforces `0 < x < 1`, so the bounds need no explicit handling.
 - Duality gap of the returned point ≈ `2·N³·ε`.
@@ -89,7 +92,7 @@ The console prints the current grid in this format after every command (`grid: �
 ### 4.2 `view probs`
 
 - Per cell a `by × bx` mini-grid of percentages: mini-cell `(i, j)` with `i ∈ 0..by`,
-  `j ∈ 0..bx` shows the percentage as `<n>%`; mini-cells within a cell are separated by
+  `j ∈ 0..bx` shows the percentage as zero-padded `<nn>%` (`00%`..`99%`); mini-cells within a cell are separated by
   exactly one space (`% `). The console display scales probabilities by `0.99`
   (`DISPLAY_SCALE`, console-render only), so `100%` never occurs and every mini-cell stays
   3 chars. The model/solver/`app` deliver the raw 0..1 values — a different UI (e.g. a

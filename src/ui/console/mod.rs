@@ -1,7 +1,8 @@
+pub mod render;
+
 use crate::model::{grid, request::SolveRequest, variables, ModelError, Size};
 use crate::solver::Assignment;
-use crate::ui::render::{self, Givens};
-use crate::ui::{Command, Ui, ViewMode};
+use crate::ui::{Command, Givens, Ui, ViewMode, DEFAULT_EPSILON};
 use std::io::{self, BufRead, Write};
 
 pub const GIVEN_WEIGHT: f64 = 10.0;
@@ -10,11 +11,12 @@ pub const DEFAULT_SEED: u64 = 0x5EED_5EED_5EED_5EED;
 const HELP: &str = "\
 commands:
   new <bx> <by>     start a puzzle of size (Bx,By) — e.g. new 3 3 (9x9) or new 2 3 (6x6)
-  rand [seed]       fill the target base with uniform random in [-1,+1]
+  rand [seed]       fill the target base with uniform random in [-1,+1] (givens are kept)
   set <x> <y> <n>   add a given: target[idx(x,y,n)] += 10.0 on top of the base
   unset <x> <y>     remove the given at cell (x,y)
   load <grid>       load givens from a grid string (rows ';', block columns ',')
-  solve [eps]       solve along the central path (default eps 1e-6)
+  solve             solve along the central path down to the current epsilon
+  eps+ | eps-       multiply / divide the current epsilon by 10
   view winner       argmax per cell; givens '*', conflicting entries 'c' (block borders '#')
   view probs        per-cell percentage mini-grid (cells ':' within a block, block borders '#')
   show              re-render
@@ -41,13 +43,14 @@ impl Rng {
     }
 }
 
-/// Console frontend: owns the current size, the random target base and the
-/// givens; renders the two output views.
+/// Console frontend: owns the current size, the random target base, the
+/// givens and the current epsilon; renders the two output views.
 pub struct ConsoleUi {
     size: Option<Size>,
     base: Vec<f64>,
     seed: u64,
     givens: Givens,
+    epsilon: f64,
     assignment: Option<Assignment>,
     view: ViewMode,
 }
@@ -59,6 +62,7 @@ impl ConsoleUi {
             base: Vec::new(),
             seed: DEFAULT_SEED,
             givens: Givens::new(),
+            epsilon: DEFAULT_EPSILON,
             assignment: None,
             view: ViewMode::Winner,
         }
@@ -111,7 +115,6 @@ impl Ui for ConsoleUi {
                     self.base = (0..size.num_vars())
                         .map(|_| rng.next_f64() * 2.0 - 1.0)
                         .collect();
-                    self.givens.clear();
                     self.assignment = None;
                 }
                 Err(e) => self.note(&format!("error: {e}")),
@@ -150,20 +153,28 @@ impl Ui for ConsoleUi {
                 self.givens.clear();
                 self.assignment = None;
             }
+            Command::EpsPlus => {
+                self.epsilon = (self.epsilon * 10.0).min(1.0);
+                self.note(&format!("epsilon = {:.0e}", self.epsilon));
+            }
+            Command::EpsMinus => {
+                self.epsilon = (self.epsilon / 10.0).max(1e-12);
+                self.note(&format!("epsilon = {:.0e}", self.epsilon));
+            }
             Command::View(mode) => self.view = *mode,
             Command::Help => self.note(HELP),
-            Command::Show | Command::Solve { .. } | Command::Quit => {}
+            Command::Show | Command::Solve | Command::Quit => {}
         }
         Ok(())
     }
 
-    fn solve_request(&self, epsilon: f64) -> Option<SolveRequest> {
+    fn solve_request(&self) -> Option<SolveRequest> {
         let size = self.size?;
         let mut target = self.base.clone();
         for (&(x, y), &d) in &self.givens {
             target[variables::idx(&size, x, y, d)] += GIVEN_WEIGHT;
         }
-        SolveRequest::new(size, target, epsilon).ok()
+        SolveRequest::new(size, target, self.epsilon).ok()
     }
 
     fn set_assignment(&mut self, assignment: Option<Assignment>) {
@@ -182,13 +193,14 @@ impl Ui for ConsoleUi {
         };
         writeln!(
             w,
-            "size (Bx,By)=({},{})  N={}  vars={}  givens={}  seed={}",
+            "size (Bx,By)=({},{})  N={}  vars={}  givens={}  seed={}  eps={:.0e}",
             size.bx,
             size.by,
             size.n(),
             size.num_vars(),
             self.givens.len(),
-            self.seed
+            self.seed,
+            self.epsilon
         )?;
         match (&self.assignment, self.view) {
             (Some(a), ViewMode::Winner) => {
@@ -240,15 +252,9 @@ fn parse_command(line: &str) -> Result<Command, String> {
             let y = parse_usize(tokens.get(2), "y")?;
             Ok(Command::Unset { x, y })
         }
-        "solve" => Ok(Command::Solve {
-            epsilon: match tokens.get(1) {
-                None => None,
-                Some(s) => Some(
-                    s.parse::<f64>()
-                        .map_err(|_| format!("invalid epsilon '{s}'"))?,
-                ),
-            },
-        }),
+        "solve" => Ok(Command::Solve),
+        "eps+" => Ok(Command::EpsPlus),
+        "eps-" => Ok(Command::EpsMinus),
         "view" => match tokens.get(1) {
             Some(&"winner") => Ok(Command::View(ViewMode::Winner)),
             Some(&"probs") => Ok(Command::View(ViewMode::Probabilities)),

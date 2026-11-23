@@ -1,5 +1,5 @@
 use sudoku_rs::model::Size;
-use sudoku_rs::ui::render::{conflict_cells, conflicts, winners};
+use sudoku_rs::ui::console::render::{conflict_cells, conflicts, winners};
 
 #[test]
 fn conflict_detection() {
@@ -25,7 +25,7 @@ fn conflict_detection() {
 
 #[test]
 fn grid_block_separator_spans_full_width() {
-    use sudoku_rs::ui::render;
+    use sudoku_rs::ui::console::render;
     let s = Size::new(2, 3).unwrap();
     let mut out = Vec::new();
     render::render_grid(&mut out, &s, 3, |x, y| format!("{}  ", (x + y) % 6 + 1)).unwrap();
@@ -40,7 +40,7 @@ fn grid_block_separator_spans_full_width() {
 
 #[test]
 fn probs_console_display_scales_by_099() {
-    use sudoku_rs::ui::render;
+    use sudoku_rs::ui::console::render;
     let s = Size::new(2, 3).unwrap();
     let mut values = vec![0.0; s.num_vars()];
     // raw solver value 1.0: the console display scales by 0.99 -> "99%"
@@ -49,6 +49,7 @@ fn probs_console_display_scales_by_099() {
     render::render_probs(&mut out, &s, &values).unwrap();
     let text = String::from_utf8(out).unwrap();
     assert!(text.contains("99%"));
+    assert!(text.contains("00%")); // zero-padded, not "0%"
     assert!(!text.contains("100%"));
 }
 

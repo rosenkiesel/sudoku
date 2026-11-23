@@ -1,12 +1,10 @@
 use crate::model::{variables, Size};
-use std::collections::BTreeMap;
+use crate::ui::Givens;
 use std::io::{self, Write};
 
-pub type Givens = BTreeMap<(usize, usize), u8>;
-
 /// Console-display-only scaling: probabilities are shown as `99 * p` percent,
-/// so every mini-cell is at most `99%` (3 chars) and `100%` never occurs.
-/// The model/solver values stay raw 0..1 — other UIs (e.g. a future HTML
+/// so every mini-cell is at most `99%` and `100%` never occurs. The
+/// model/solver values stay raw 0..1 — other UIs (e.g. a future HTML
 /// frontend) decide themselves how to render 0..100% (e.g. color-coded).
 pub const DISPLAY_SCALE: f64 = 0.99;
 
@@ -67,7 +65,8 @@ pub fn conflict_cells(size: &Size, wins: &[u8]) -> Vec<bool> {
     flags
 }
 
-/// Rows/columns in which some digit occurs more than once among the winners.
+/// Rows/columns in which some digit occurs more than once among the winners
+/// (i.e. the row/column itself contains a conflict).
 pub fn conflicts(size: &Size, wins: &[u8]) -> (Vec<usize>, Vec<usize>) {
     let n = size.n();
     let mut bad_rows = Vec::new();
@@ -155,6 +154,7 @@ pub fn render_winner(
 /// each digit (mini-cell (i, j) shows digit i*bx + j + 1). Within a block,
 /// cells are delimited by `:` and cell rows by `-` lines; block boundaries
 /// stay `#` (vertical `#` between block columns, `#` line between block rows).
+/// Mini-cells are zero-padded (`00%`..`99%`, console scales by DISPLAY_SCALE).
 pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Result<()> {
     let n = size.n();
     let mut width = 0_usize;
@@ -171,11 +171,10 @@ pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Resu
                         if j > 0 {
                             cell.push(' ');
                         }
-                        // "<n>%" without padding: mini-cells are separated by
-                        // exactly "% ", block boundaries become "%#"; the console
-                        // scales by DISPLAY_SCALE = 0.99 for display, so "100%"
-                        // never occurs and every mini-cell is 3 chars
-                        cell.push_str(&format!("{:.0}%", 100.0 * p * DISPLAY_SCALE));
+                        // zero-padded "<nn>%": mini-cells are separated by
+                        // exactly "% ", block boundaries read "%#", and every
+                        // mini-cell is 3 chars wide
+                        cell.push_str(&format!("{:02.0}%", 100.0 * p * DISPLAY_SCALE));
                     }
                     cells.push(cell);
                 }

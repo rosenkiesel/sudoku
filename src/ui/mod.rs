@@ -1,9 +1,14 @@
 pub mod console;
-pub mod render;
 
 use crate::model::request::SolveRequest;
 use crate::solver::Assignment;
+use std::collections::BTreeMap;
 use std::io;
+
+pub const DEFAULT_EPSILON: f64 = 1e-6;
+
+/// Generic helper: givens of a puzzle as (x, y) -> digit.
+pub type Givens = BTreeMap<(usize, usize), u8>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ViewMode {
@@ -19,7 +24,9 @@ pub enum Command {
     Unset { x: usize, y: usize },
     Show,
     Help,
-    Solve { epsilon: Option<f64> },
+    Solve,
+    EpsPlus,
+    EpsMinus,
     View(ViewMode),
     Load(String),
     Clear,
@@ -30,7 +37,7 @@ pub enum Command {
 pub trait Ui {
     fn next_command(&mut self) -> io::Result<Command>;
     fn apply(&mut self, command: &Command) -> io::Result<()>;
-    fn solve_request(&self, epsilon: f64) -> Option<SolveRequest>;
+    fn solve_request(&self) -> Option<SolveRequest>;
     fn set_assignment(&mut self, assignment: Option<Assignment>);
     fn note(&mut self, message: &str);
     fn render(&mut self) -> io::Result<()>;

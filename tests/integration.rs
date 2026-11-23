@@ -3,7 +3,7 @@ use sudoku_rs::model::request::SolveRequest;
 use sudoku_rs::model::{variables, Size};
 use sudoku_rs::solver::central_path::CentralPathSolver;
 use sudoku_rs::solver::Solver;
-use sudoku_rs::ui::render::{conflicts, winners};
+use sudoku_rs::ui::console::render::{conflicts, winners};
 
 fn solve_with_givens(size: Size, puzzle: &str, epsilon: f64) -> Vec<f64> {
     let n = size.n();

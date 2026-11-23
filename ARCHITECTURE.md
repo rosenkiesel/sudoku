@@ -158,7 +158,7 @@ pub enum SolverError {
 pub trait Ui {
     fn next_command(&mut self) -> io::Result<Command>;
     fn apply(&mut self, command: &Command) -> io::Result<()>;
-    fn solve_request(&self, epsilon: f64) -> Option<SolveRequest>;   // givens + base → target vector
+    fn solve_request(&self) -> Option<SolveRequest>;   // givens + base + current epsilon → request
     fn set_assignment(&mut self, assignment: Option<Assignment>);
     fn note(&mut self, message: &str);
     fn render(&mut self) -> io::Result<()>;
@@ -170,7 +170,10 @@ pub enum Command {
     Set { x: usize, y: usize, n: u8 },
     Unset { x: usize, y: usize },
     Show,
-    Solve { epsilon: Option<f64> },
+    Help,
+    Solve,
+    EpsPlus,
+    EpsMinus,
     View(ViewMode),
     Load(String),        // grid string: rows ';', block columns ',' (REQUIREMENTS §1.1)
     Clear,
@@ -204,7 +207,8 @@ pub fn run<S: Solver, U: Ui>(mut ui: U, solver: &S) -> io::Result<()>
 ```
 
 Loop: `ui.render()` → `ui.next_command()`. On `Solve`: `build_system(size)` (rules + bounds
-only) → `ui.solve_request(epsilon)` → `solver.solve(...)` → `ui.set_assignment(...)`.
+only) → `ui.solve_request()` (the UI owns the current epsilon, changed via `EpsPlus`/`EpsMinus`)
+→ `solver.solve(...)` → `ui.set_assignment(...)`.
 The assignment carries the raw 0..1 values; display scaling (console: ×0.99 so `100%`
 never occurs) is a rendering detail of each UI, not of the model.
 
@@ -225,9 +229,10 @@ src/
     mod.rs                // trait Solver, Assignment, SolverError
     central_path.rs       // interior point, μ-sweep along the central path
   ui/
-    mod.rs                // trait Ui, Command, ViewMode, View
-    console.rs            // ConsoleUi: REPL, owns size + givens, builds target vector
-    render.rs             // the two output views
+    mod.rs                // generic: trait Ui, Command, ViewMode, Givens, DEFAULT_EPSILON
+    console/
+      mod.rs              // ConsoleUi (console-specific): REPL, owns size + givens + epsilon
+      render.rs           // the two output views (console-specific rendering)
   app.rs                  // run<S: Solver, U: Ui>
 tests/
   model.rs                // constraint counts for (3,3) and (2,3), index mapping, target vector
