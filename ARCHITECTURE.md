@@ -172,7 +172,7 @@ pub enum Command {
     Show,
     Solve { epsilon: Option<f64> },
     View(ViewMode),
-    Load(String),        // N²-char string, '.' or '0' = empty
+    Load(String),        // grid string: rows ';', block columns ',' (REQUIREMENTS §1.1)
     Clear,
     Quit,
 }
@@ -213,6 +213,7 @@ src/
   model/
     mod.rs                // Size { bx, by }, N = bx*by, Cell, Digit, validation
     variables.rs          // idx(x, y, n), num_vars, iteration
+    grid.rs               // format_grid / parse_grid (string representation: ';' rows, ',' block cols)
     constraints.rs        // build_system(size) -> LinearSystem   (rules + bounds only)
     request.rs            // SolveRequest { size, target, epsilon }
   solver/

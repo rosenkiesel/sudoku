@@ -20,13 +20,24 @@ REPL continues.
 | `solve [eps]` | build `LinearSystem` + `SolveRequest` and run the central-path solver; default `eps = 1e-6` |
 | `view winner` | winner view (§4.1) |
 | `view probs` | probability view (§4.2) |
-| `show` | current size, givens and a summary of the target vector |
-| `load <string>` | N² characters, digit chars for 1..=N (hex digits beyond 9), `.` or `0` = empty; each digit becomes a given |
+| `show` | re-render: grid, grid string and header |
+| `load <string>` | grid in string format (§1.1); each digit becomes a given |
 | `clear` | remove all givens (the random target base stays) |
 | `quit` | exit |
 
 Validation: coordinates and digits must be in range for the current size; `solve`/`view`
 require a current puzzle (`new`/`load` first).
+
+### 1.1 String format
+
+Grid strings use `;` between rows and `,` between block columns within a row. Both
+separators are optional when parsing — a flat N² string also works. Digits are `1..=9`,
+then hex `a..`; `.` or `0` means empty.
+
+- 9×9: `530,070,000;600,195,000;098,000,060;800,060,003;400,803,001;700,020,006;060,000,280;000,419,005;000,080,079`
+- 6×6 `(Bx,By)=(2,3)`: `1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5`
+
+The console prints the current grid in this format after every command (`grid: …`).
 
 ## 2. Target vector semantics
 

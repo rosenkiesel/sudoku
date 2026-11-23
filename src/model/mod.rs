@@ -1,4 +1,5 @@
 pub mod constraints;
+pub mod grid;
 pub mod request;
 pub mod variables;
 
@@ -72,6 +73,7 @@ pub enum ModelError {
     DigitOutOfRange { n: u8, max: usize },
     TargetLength { expected: usize, actual: usize },
     InvalidEpsilon { epsilon: f64 },
+    InvalidGrid(String),
     NoPuzzle,
 }
 
@@ -96,6 +98,7 @@ impl fmt::Display for ModelError {
             Self::InvalidEpsilon { epsilon } => {
                 write!(f, "epsilon must be a positive finite number, got {epsilon}")
             }
+            Self::InvalidGrid(message) => write!(f, "invalid grid string: {message}"),
             Self::NoPuzzle => write!(f, "no puzzle yet — start with: new <bx> <by>"),
         }
     }

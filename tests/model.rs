@@ -69,6 +69,30 @@ fn block_coverage() {
 }
 
 #[test]
+fn grid_string_format() {
+    use sudoku_rs::model::grid;
+    let s = Size::new(2, 3).unwrap();
+    let text = "1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5";
+    let cells = grid::parse_grid(&s, text).unwrap();
+    assert_eq!(cells.len(), 18);
+    // flat string (no separators) parses to the same givens
+    let flat = "1.3.5..4.6.25..2.4.34..14..12..1.3.5";
+    assert_eq!(grid::parse_grid(&s, flat).unwrap(), cells);
+    // format roundtrip
+    let map: std::collections::BTreeMap<(usize, usize), u8> =
+        cells.iter().map(|&(x, y, d)| ((x, y), d)).collect();
+    assert_eq!(
+        grid::format_grid(&s, |x, y| map.get(&(x, y)).copied()),
+        text
+    );
+    assert!(grid::parse_grid(&s, "1,2").is_err());
+
+    let s9 = Size::new(3, 3).unwrap();
+    let t9 = "530,070,000;600,195,000;098,000,060;800,060,003;400,803,001;700,020,006;060,000,280;000,419,005;000,080,079";
+    assert_eq!(grid::parse_grid(&s9, t9).unwrap().len(), 30);
+}
+
+#[test]
 fn request_validation() {
     let s = Size::new(2, 3).unwrap();
     assert!(SolveRequest::new(s, vec![0.0; 216], 1e-6).is_ok());

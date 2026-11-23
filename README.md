@@ -70,7 +70,7 @@ $ cargo run
 > solve         # central-path solve (default epsilon 1e-6)
 > view winner   # argmax per cell + erroneous rows/cols marked
 > view probs    # by x bx percentage mini-grid per cell
-> load 530070000600195000098000060800060003400803001700020006060000280000419005000080079
+> load 530,070,000;600,195,000;098,000,060;800,060,003;400,803,001;700,020,006;060,000,280;000,419,005;000,080,079
 > quit
 ```
 

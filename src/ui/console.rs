@@ -1,4 +1,4 @@
-use crate::model::{request::SolveRequest, variables, ModelError, Size};
+use crate::model::{grid, request::SolveRequest, variables, ModelError, Size};
 use crate::solver::Assignment;
 use crate::ui::render::{self, Givens};
 use crate::ui::{Command, Ui, ViewMode};
@@ -118,34 +118,16 @@ impl Ui for ConsoleUi {
                 self.assignment = None;
             }
             Command::Load(text) => match self.require_size() {
-                Ok(size) => {
-                    let n = size.n();
-                    let chars: Vec<char> = text.chars().collect();
-                    if chars.len() != n * n {
-                        self.note(&format!(
-                            "error: expected {} characters, got {}",
-                            n * n,
-                            chars.len()
-                        ));
-                        return Ok(());
-                    }
-                    self.givens.clear();
-                    for (i, ch) in chars.iter().enumerate() {
-                        if *ch == '.' || *ch == '0' {
-                            continue;
+                Ok(size) => match grid::parse_grid(&size, text) {
+                    Ok(cells) => {
+                        self.givens.clear();
+                        for (x, y, d) in cells {
+                            self.givens.insert((x, y), d);
                         }
-                        match ch.to_digit(36) {
-                            Some(d) if d >= 1 && (d as usize) <= n => {
-                                self.givens.insert((i / n, i % n), d as u8);
-                            }
-                            _ => {
-                                self.note(&format!("error: invalid digit '{ch}'"));
-                                return Ok(());
-                            }
-                        }
+                        self.assignment = None;
                     }
-                    self.assignment = None;
-                }
+                    Err(e) => self.note(&format!("error: {e}")),
+                },
                 Err(e) => self.note(&format!("error: {e}")),
             },
             Command::Clear => {
@@ -200,7 +182,12 @@ impl Ui for ConsoleUi {
                 Some(d) => format!("{d} "),
                 None => ". ".to_string(),
             }),
-        }
+        }?;
+        writeln!(
+            w,
+            "grid: {}",
+            grid::format_grid(&size, |x, y| self.givens.get(&(x, y)).copied())
+        )
     }
 }
 
