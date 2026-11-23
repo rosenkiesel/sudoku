@@ -35,6 +35,6 @@ The UI renders the solution in one of two views:
 
 ## Workflow
 
-- Docs-first: `README.md` and `ARCHITECTURE.md` describe the design before code lands in this repo.
+- Docs-first: `README.md` (overview), `ARCHITECTURE.md` (layering + linear model) and `REQUIREMENTS.md` (detailed interface and numerical specs) describe the design before code lands in this repo.
 - Verify with `cargo test` / `cargo run` before pushing.
 - Work happens on `vibe/…` branches; no PR unless explicitly requested.

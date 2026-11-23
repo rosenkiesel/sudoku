@@ -45,11 +45,12 @@ peaked, near 0/1; large ε → flat probabilities near the analytic center.
 - per cell the **winner** (argmax of `p`) plus flagged **rows/columns that contain conflicts**, or
 - per cell a `By × Bx` mini-grid with the percentage probability of each digit (3×3 for 9×9, 3×2 for 6×6).
 
-Details in [ARCHITECTURE.md](ARCHITECTURE.md).
+Architecture details in [ARCHITECTURE.md](ARCHITECTURE.md); detailed interface and numerical
+specs in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 ## Status
 
-- [x] `README.md`, `ARCHITECTURE.md`, `AGENTS.md`
+- [x] `README.md`, `ARCHITECTURE.md`, `REQUIREMENTS.md`, `AGENTS.md`
 - [ ] `model` – `Size{bx,by}`, variables `p(x,y,n)`, constraints, `SolveRequest { size, target, epsilon }`
 - [ ] `solver` – central-path (interior-point) LP with μ-sweep
 - [ ] `ui` – console REPL + the two output views
@@ -60,8 +61,9 @@ Details in [ARCHITECTURE.md](ARCHITECTURE.md).
 ```text
 $ cargo run
 > new 3 3       # start a 9x9 (or: new 2 3 for a 6x6)
-> set 0 0 5     # row 0, col 0 = 5 (given; UI turns it into the target vector)
-> solve         # central-path solve
+> rand 42       # fill the whole target vector with uniform random in [-1,+1] (seed 42)
+> set 0 0 5     # given: target[idx(0,0,5)] += 10.0 on top of the random base
+> solve         # central-path solve (default epsilon 1e-6)
 > view winner   # argmax per cell + erroneous rows/cols marked
 > view probs    # by x bx percentage mini-grid per cell
 > load 530070600600195342098000060800060003400803001700020006060000280000419005000080079
