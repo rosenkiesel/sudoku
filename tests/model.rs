@@ -1,6 +1,6 @@
-use sudoku_rs::model::constraints::{block_of, build_system};
+use sudoku_rs::model::game_rules::{block_of, build_system};
 use sudoku_rs::model::request::SolveRequest;
-use sudoku_rs::model::{variables, Size};
+use sudoku_rs::model::{grid_indices, Size};
 
 #[test]
 fn size_params() {
@@ -23,9 +23,9 @@ fn size_params() {
 #[test]
 fn index_roundtrip() {
     let s = Size::new(2, 3).unwrap();
-    for (x, y, d) in variables::iter(&s) {
+    for (x, y, d) in grid_indices::iter(&s) {
         assert_eq!(
-            variables::cell_digit(&s, variables::idx(&s, x, y, d)),
+            grid_indices::cell_digit(&s, grid_indices::idx(&s, x, y, d)),
             (x, y, d)
         );
     }
@@ -69,35 +69,51 @@ fn block_coverage() {
 }
 
 #[test]
-fn grid_string_format() {
-    use sudoku_rs::model::grid;
+fn given_grid_string_format() {
+    use sudoku_rs::model::given_grid::GivenGrid;
     let s = Size::new(2, 3).unwrap();
     let text = "1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5";
-    let cells = grid::parse_grid(&s, text).unwrap();
-    assert_eq!(cells.len(), 18);
-    // flat string (no separators) parses to the same givens
+    let grid = GivenGrid::parse(&s, text).unwrap();
+    assert_eq!(grid.dimensions(), (2, 3));
+    assert_eq!(grid.size(), s);
+    assert_eq!(grid.givens().len(), 18);
+    // flat string (no separators) parses to the same grid; format roundtrip
     let flat = "1.3.5..4.6.25..2.4.34..14..12..1.3.5";
-    assert_eq!(grid::parse_grid(&s, flat).unwrap(), cells);
-    // format roundtrip
-    let map: std::collections::BTreeMap<(usize, usize), u8> =
-        cells.iter().map(|&(x, y, d)| ((x, y), d)).collect();
-    assert_eq!(
-        grid::format_grid(&s, |x, y| map.get(&(x, y)).copied()),
-        text
-    );
-    assert!(grid::parse_grid(&s, "1,2").is_err());
+    assert_eq!(GivenGrid::parse(&s, flat).unwrap().format(), grid.format());
+    assert_eq!(grid.format(), text);
+    assert_eq!(grid.to_string(), text);
+    assert!(GivenGrid::parse(&s, "1,2").is_err());
+    // set/unset/clear/get
+    let mut g = GivenGrid::new(s);
+    g.set(0, 0, 3).unwrap();
+    assert_eq!(g.get(0, 0), Some(3));
+    assert!(g.set(0, 0, 9).is_err()); // digit out of range for N=6
+    g.unset(0, 0);
+    assert_eq!(g.get(0, 0), None);
 
     let s9 = Size::new(3, 3).unwrap();
     let t9 = "530,070,000;600,195,000;098,000,060;800,060,003;400,803,001;700,020,006;060,000,280;000,419,005;000,080,079";
-    assert_eq!(grid::parse_grid(&s9, t9).unwrap().len(), 30);
+    assert_eq!(GivenGrid::parse(&s9, t9).unwrap().givens().len(), 30);
 }
 
 #[test]
 fn request_validation() {
+    use sudoku_rs::model::request::default_start;
     let s = Size::new(2, 3).unwrap();
     assert!(SolveRequest::new(s, vec![0.0; 216], 1e-6).is_ok());
     assert!(SolveRequest::new(s, vec![0.0; 10], 1e-6).is_err());
     assert!(SolveRequest::new(s, vec![0.0; 216], 0.0).is_err());
     assert!(SolveRequest::new(s, vec![0.0; 216], -1.0).is_err());
     assert!(SolveRequest::new(s, vec![0.0; 216], f64::NAN).is_err());
+    // default start: 1/(bx*by) = 1/6 in every variable
+    assert_eq!(default_start(&s), vec![1.0 / 6.0; 216]);
+    let req = SolveRequest::new(s, vec![0.0; 216], 1e-6).unwrap();
+    assert_eq!(req.start, vec![1.0 / 6.0; 216]);
+    // explicit start must be length N^3 and finite; boundary values are
+    // clamped into the open interval (a previous result may contain 0.0/1.0)
+    assert!(SolveRequest::with_start(s, vec![0.0; 216], 1e-6, vec![0.5; 216]).is_ok());
+    assert!(SolveRequest::with_start(s, vec![0.0; 216], 1e-6, vec![0.5; 10]).is_err());
+    let clamped = SolveRequest::with_start(s, vec![0.0; 216], 1e-6, vec![1.0; 216]).unwrap();
+    assert!(clamped.start.iter().all(|&v| v > 0.0 && v < 1.0));
+    assert!(SolveRequest::with_start(s, vec![0.0; 216], 1e-6, vec![f64::NAN; 216]).is_err());
 }

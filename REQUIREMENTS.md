@@ -55,7 +55,10 @@ The console prints the current grid in this format after every command (`grid: �
 
 ## 3. Solver numerics (central path)
 
-- `SolveRequest { size, target, epsilon }` with `epsilon` = barrier weight μ > 0 in
+- `SolveRequest { size, target, epsilon, start }` with `epsilon` = barrier weight μ > 0 in
+  `start` = initial point of the sweep, length N³, clamped into the open interval (0, 1);
+  default `1/(bx*by)` in every variable. The solver clamps its result into (0, 1), and the
+  console passes the last assignment as `start` of the next solve (warm start).
 
   ```text
   φ_ε(x) = −targetᵀ·x − ε · Σᵢ ( ln xᵢ + ln(1 − xᵢ) )    s.t.  A·x = b

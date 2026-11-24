@@ -1,6 +1,6 @@
-use sudoku_rs::model::constraints::build_system;
+use sudoku_rs::model::game_rules::build_system;
 use sudoku_rs::model::request::SolveRequest;
-use sudoku_rs::model::{variables, Size};
+use sudoku_rs::model::{grid_indices, Size};
 use sudoku_rs::solver::central_path::CentralPathSolver;
 use sudoku_rs::solver::Solver;
 use sudoku_rs::ui::console::render::{conflicts, winners};
@@ -13,7 +13,7 @@ fn solve_with_givens(size: Size, puzzle: &str, epsilon: f64) -> Vec<f64> {
             continue;
         }
         let d = ch.to_digit(10).unwrap() as u8;
-        target[variables::idx(&size, i / n, i % n, d)] += 10.0;
+        target[grid_indices::idx(&size, i / n, i % n, d)] += 10.0;
     }
     let request = SolveRequest::new(size, target, epsilon).unwrap();
     let system = build_system(&size);
@@ -43,12 +43,12 @@ fn assert_feasible(size: Size, values: &[f64]) {
     for x in 0..n {
         for y in 0..n {
             let sum: f64 = (1..=n)
-                .map(|d| values[variables::idx(&size, x, y, d as u8)])
+                .map(|d| values[grid_indices::idx(&size, x, y, d as u8)])
                 .sum();
             assert!((sum - 1.0).abs() < 1e-6, "cell ({x},{y}) sums to {sum}");
             assert!(
                 (1..=n).all(|d| {
-                    let p = values[variables::idx(&size, x, y, d as u8)];
+                    let p = values[grid_indices::idx(&size, x, y, d as u8)];
                     (-1e-9..=1.0 + 1e-9).contains(&p)
                 }),
                 "probability out of [0,1] at ({x},{y})"
@@ -66,7 +66,7 @@ fn assert_givens_respected(size: Size, puzzle: &str, values: &[f64]) {
         }
         let d = ch.to_digit(10).unwrap() as u8;
         let (x, y) = (i / n, i % n);
-        let p = values[variables::idx(&size, x, y, d)];
+        let p = values[grid_indices::idx(&size, x, y, d)];
         assert!(p > 0.99, "given ({x},{y})={d} has p={p}");
         assert_eq!(wins[x * n + y], d, "winner at given ({x},{y})");
     }
@@ -110,8 +110,8 @@ fn contradictory_givens_stay_feasible_but_conflict() {
     // the row rule forces them to share — the winner view must flag row 0
     let size = Size::new(2, 3).unwrap();
     let mut target = vec![0.0; size.num_vars()];
-    target[variables::idx(&size, 0, 0, 1)] += 10.0;
-    target[variables::idx(&size, 0, 1, 1)] += 10.0;
+    target[grid_indices::idx(&size, 0, 0, 1)] += 10.0;
+    target[grid_indices::idx(&size, 0, 1, 1)] += 10.0;
     let request = SolveRequest::new(size, target, 1e-8).unwrap();
     let system = build_system(&size);
     let values = CentralPathSolver::new()
@@ -119,8 +119,8 @@ fn contradictory_givens_stay_feasible_but_conflict() {
         .unwrap()
         .values;
     assert_feasible(size, &values);
-    let p00 = values[variables::idx(&size, 0, 0, 1)];
-    let p01 = values[variables::idx(&size, 0, 1, 1)];
+    let p00 = values[grid_indices::idx(&size, 0, 0, 1)];
+    let p01 = values[grid_indices::idx(&size, 0, 1, 1)];
     assert!(
         (p00 - 0.5).abs() < 0.1 && (p01 - 0.5).abs() < 0.1,
         "p00={p00} p01={p01}"
@@ -128,4 +128,33 @@ fn contradictory_givens_stay_feasible_but_conflict() {
     let wins = winners(&size, &values);
     let (rows, _cols) = conflicts(&size, &wins);
     assert!(rows.contains(&0), "row 0 must be flagged, got {rows:?}");
+}
+
+#[test]
+fn warm_start_from_previous_result() {
+    // solve once, then solve again with the first result as start state:
+    // the winners must still be the known solution
+    let size = Size::new(2, 3).unwrap();
+    let first = solve_with_givens(size, PUZZLE_6, 1e-8);
+    let n = size.n();
+    let mut target = vec![0.0; size.num_vars()];
+    for (i, ch) in PUZZLE_6.chars().enumerate() {
+        if ch == '.' {
+            continue;
+        }
+        let d = ch.to_digit(10).unwrap() as u8;
+        target[grid_indices::idx(&size, i / n, i % n, d)] += 10.0;
+    }
+    let request = SolveRequest::with_start(size, target, 1e-10, first).unwrap();
+    let system = build_system(&size);
+    let second = CentralPathSolver::new()
+        .solve(&system, &request)
+        .unwrap()
+        .values;
+    let wins = winners(&size, &second);
+    let sol: Vec<u8> = SOLUTION_6
+        .chars()
+        .map(|c| c.to_digit(10).unwrap() as u8)
+        .collect();
+    assert_eq!(wins, sol);
 }

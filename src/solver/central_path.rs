@@ -1,5 +1,5 @@
 use super::{Assignment, Solver, SolverError};
-use crate::model::constraints::{LinearSystem, SparseRow};
+use crate::model::game_rules::{LinearSystem, SparseRow};
 use crate::model::request::SolveRequest;
 
 /// Primal-dual interior-point solver that follows the central path of
@@ -32,7 +32,7 @@ impl Default for CentralPathSolver {
             newton_tol: 1e-10,
             max_newton: 50,
             max_line_search: 40,
-            accept_tol: 1e-7,
+            accept_tol: 1e-6,
             reg: 1e-12,
         }
     }
@@ -238,18 +238,21 @@ impl Solver for CentralPathSolver {
         system: &LinearSystem,
         request: &SolveRequest,
     ) -> Result<Assignment, SolverError> {
-        if system.size != request.size || system.num_vars != request.target.len() {
+        if system.size != request.size
+            || system.num_vars != request.target.len()
+            || system.num_vars != request.start.len()
+        {
             return Err(SolverError::Backend(
                 "linear system and solve request do not match".into(),
             ));
         }
         let ctx = Self::make_ctx(system, request);
-        let n = ctx.num_vars;
         let m = ctx.rows.len();
 
-        // x = 1/N is strictly feasible for every rule row (each sums N entries).
-        let n_side = system.size.n() as f64;
-        let mut x = vec![1.0 / n_side; n];
+        // Warm start from the request's start state (default 1/N per variable,
+        // strictly interior; a previous Assignment can be passed to continue
+        // along the central path).
+        let mut x = request.start.clone();
         let mut lambda = vec![0.0; m];
 
         // sweep mu down to epsilon, but never below the numerical floor
@@ -266,6 +269,11 @@ impl Solver for CentralPathSolver {
                 break;
             }
             mu = (mu * self.shrink).max(eps);
+        }
+        // clamp into the open interval so the result is a valid start state
+        // for the next SolveRequest
+        for v in &mut x {
+            *v = v.clamp(1e-12, 1.0 - 1e-12);
         }
         Ok(Assignment { values: x })
     }

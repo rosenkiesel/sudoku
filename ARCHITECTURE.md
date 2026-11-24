@@ -106,12 +106,18 @@ SolveRequest {
     size:    Size,
     target:  Vec<f64>,   // length N³
     epsilon: f64,        // barrier weight μ > 0
+    start:   Vec<f64>,   // length N³, strictly inside (0,1); default 1/(bx*by) per variable
 }
 ```
 
 The UI builds `target` from a random base (uniform in [-1,+1], filled by `rand`) plus its
 givens: for a given `(x, y) = n`, `target[idx(x,y,n)] += 10.0` on top of the base (see
 REQUIREMENTS.md §2). Without `rand` the base is zero — the constraints do the work.
+
+`start` is the initial point of the central-path sweep. Default: `1/(bx*by)` in every
+variable (`default_start`). The solver clamps its result into the open interval (0, 1), so
+the previous `Assignment` can be passed as `start` of the next `SolveRequest` — the UI does
+exactly that for warm starts.
 
 **Epsilon is the factor with which `log(x)` enters the objective** — the barrier weight μ
 on the central path:
@@ -221,15 +227,15 @@ src/
   lib.rs
   model/
     mod.rs                // Size { bx, by }, N = bx*by, Cell, Digit, validation
-    variables.rs          // idx(x, y, n), num_vars, iteration
-    grid.rs               // format_grid / parse_grid (string representation: ';' rows, ',' block cols)
-    constraints.rs        // build_system(size) -> LinearSystem   (rules + bounds only)
-    request.rs            // SolveRequest { size, target, epsilon }
+    grid_indices.rs       // idx(x, y, n), num_vars, iteration
+    given_grid.rs         // GivenGrid: givens + dimensions() + parse/format (';' rows, ',' block cols)
+    game_rules.rs         // build_system(size) -> LinearSystem   (rules + bounds only)
+    request.rs            // SolveRequest { size, target, epsilon, start }, default_start
   solver/
     mod.rs                // trait Solver, Assignment, SolverError
     central_path.rs       // interior point, μ-sweep along the central path
   ui/
-    mod.rs                // generic: trait Ui, Command, ViewMode, Givens, DEFAULT_EPSILON
+    mod.rs                // generic: trait Ui, Command, ViewMode, DEFAULT_EPSILON
     console/
       mod.rs              // ConsoleUi (console-specific): REPL, owns size + givens + epsilon
       render.rs           // the two output views (console-specific rendering)

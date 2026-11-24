@@ -1,4 +1,4 @@
-use crate::model::constraints::build_system;
+use crate::model::game_rules::build_system;
 use crate::solver::Solver;
 use crate::ui::{Command, Ui};
 use std::io;

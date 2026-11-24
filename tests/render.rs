@@ -44,7 +44,7 @@ fn probs_console_display_scales_by_099() {
     let s = Size::new(2, 3).unwrap();
     let mut values = vec![0.0; s.num_vars()];
     // raw solver value 1.0: the console display scales by 0.99 -> "99%"
-    values[sudoku_rs::model::variables::idx(&s, 0, 0, 1)] = 1.0;
+    values[sudoku_rs::model::grid_indices::idx(&s, 0, 0, 1)] = 1.0;
     let mut out = Vec::new();
     render::render_probs(&mut out, &s, &values).unwrap();
     let text = String::from_utf8(out).unwrap();
@@ -58,8 +58,8 @@ fn winners_argmax() {
     let s = Size::new(2, 3).unwrap();
     let mut values = vec![0.1; s.num_vars()];
     // cell (0,0): digit 4 wins; cell (1,2): digit 6 wins
-    values[sudoku_rs::model::variables::idx(&s, 0, 0, 4)] = 0.9;
-    values[sudoku_rs::model::variables::idx(&s, 1, 2, 6)] = 0.8;
+    values[sudoku_rs::model::grid_indices::idx(&s, 0, 0, 4)] = 0.9;
+    values[sudoku_rs::model::grid_indices::idx(&s, 1, 2, 6)] = 0.8;
     let wins = winners(&s, &values);
     assert_eq!(wins[0], 4);
     assert_eq!(wins[s.n() + 2], 6);

@@ -1,8 +1,10 @@
 pub mod render;
 
-use crate::model::{grid, request::SolveRequest, variables, ModelError, Size};
+use crate::model::given_grid::GivenGrid;
+use crate::model::request::SolveRequest;
+use crate::model::{grid_indices, ModelError, Size};
 use crate::solver::Assignment;
-use crate::ui::{Command, Givens, Ui, ViewMode, DEFAULT_EPSILON};
+use crate::ui::{Command, Ui, ViewMode, DEFAULT_EPSILON};
 use std::io::{self, BufRead, Write};
 
 pub const GIVEN_WEIGHT: f64 = 10.0;
@@ -43,13 +45,13 @@ impl Rng {
     }
 }
 
-/// Console frontend: owns the current size, the random target base, the
-/// givens and the current epsilon; renders the two output views.
+/// Console frontend: owns the given grid, the random target base and the
+/// current epsilon; renders the two output views. The last assignment is
+/// reused as the start state of the next solve (warm start).
 pub struct ConsoleUi {
-    size: Option<Size>,
+    grid: Option<GivenGrid>,
     base: Vec<f64>,
     seed: u64,
-    givens: Givens,
     epsilon: f64,
     assignment: Option<Assignment>,
     view: ViewMode,
@@ -58,10 +60,9 @@ pub struct ConsoleUi {
 impl ConsoleUi {
     pub fn new() -> Self {
         Self {
-            size: None,
+            grid: None,
             base: Vec::new(),
             seed: DEFAULT_SEED,
-            givens: Givens::new(),
             epsilon: DEFAULT_EPSILON,
             assignment: None,
             view: ViewMode::Winner,
@@ -69,7 +70,10 @@ impl ConsoleUi {
     }
 
     fn require_size(&self) -> Result<Size, ModelError> {
-        self.size.ok_or(ModelError::NoPuzzle)
+        self.grid
+            .as_ref()
+            .map(|g| g.size())
+            .ok_or(ModelError::NoPuzzle)
     }
 }
 
@@ -100,9 +104,8 @@ impl Ui for ConsoleUi {
         match command {
             Command::New { bx, by } => match Size::new(*bx, *by) {
                 Ok(size) => {
-                    self.size = Some(size);
+                    self.grid = Some(GivenGrid::new(size));
                     self.base = vec![0.0; size.num_vars()];
-                    self.givens.clear();
                     self.assignment = None;
                     self.seed = DEFAULT_SEED;
                 }
@@ -119,30 +122,26 @@ impl Ui for ConsoleUi {
                 }
                 Err(e) => self.note(&format!("error: {e}")),
             },
-            Command::Set { x, y, n } => match self.require_size() {
-                Ok(size) => {
-                    let checked = size.check_cell(*x, *y).and_then(|()| size.check_digit(*n));
-                    match checked {
-                        Ok(()) => {
-                            self.givens.insert((*x, *y), *n);
-                            self.assignment = None;
-                        }
-                        Err(e) => self.note(&format!("error: {e}")),
+            Command::Set { x, y, n } => match &mut self.grid {
+                Some(grid) => {
+                    if let Err(e) = grid.set(*x, *y, *n) {
+                        self.note(&format!("error: {e}"));
+                    } else {
+                        self.assignment = None;
                     }
                 }
-                Err(e) => self.note(&format!("error: {e}")),
+                None => self.note(&format!("error: {}", ModelError::NoPuzzle)),
             },
             Command::Unset { x, y } => {
-                self.givens.remove(&(*x, *y));
-                self.assignment = None;
+                if let Some(grid) = &mut self.grid {
+                    grid.unset(*x, *y);
+                    self.assignment = None;
+                }
             }
             Command::Load(text) => match self.require_size() {
-                Ok(size) => match grid::parse_grid(&size, text) {
-                    Ok(cells) => {
-                        self.givens.clear();
-                        for (x, y, d) in cells {
-                            self.givens.insert((x, y), d);
-                        }
+                Ok(size) => match GivenGrid::parse(&size, text) {
+                    Ok(grid) => {
+                        self.grid = Some(grid);
                         self.assignment = None;
                     }
                     Err(e) => self.note(&format!("error: {e}")),
@@ -150,8 +149,10 @@ impl Ui for ConsoleUi {
                 Err(e) => self.note(&format!("error: {e}")),
             },
             Command::Clear => {
-                self.givens.clear();
-                self.assignment = None;
+                if let Some(grid) = &mut self.grid {
+                    grid.clear();
+                    self.assignment = None;
+                }
             }
             Command::EpsPlus => {
                 self.epsilon = (self.epsilon * 10.0).min(1.0);
@@ -169,12 +170,19 @@ impl Ui for ConsoleUi {
     }
 
     fn solve_request(&self) -> Option<SolveRequest> {
-        let size = self.size?;
+        let grid = self.grid.as_ref()?;
+        let size = grid.size();
         let mut target = self.base.clone();
-        for (&(x, y), &d) in &self.givens {
-            target[variables::idx(&size, x, y, d)] += GIVEN_WEIGHT;
+        for (&(x, y), &d) in grid.givens() {
+            target[grid_indices::idx(&size, x, y, d)] += GIVEN_WEIGHT;
         }
-        SolveRequest::new(size, target, self.epsilon).ok()
+        // warm start: reuse the last assignment if it matches the size,
+        // otherwise the default start (1/N in every variable)
+        let start = match &self.assignment {
+            Some(a) if a.values.len() == size.num_vars() => a.values.clone(),
+            _ => crate::model::request::default_start(&size),
+        };
+        SolveRequest::with_start(size, target, self.epsilon, start).ok()
     }
 
     fn set_assignment(&mut self, assignment: Option<Assignment>) {
@@ -188,9 +196,10 @@ impl Ui for ConsoleUi {
     fn render(&mut self) -> io::Result<()> {
         let stdout = io::stdout();
         let mut w = stdout.lock();
-        let Some(size) = self.size else {
+        let Some(grid) = &self.grid else {
             return writeln!(w, "(no puzzle yet — start with: new 3 3)");
         };
+        let size = grid.size();
         writeln!(
             w,
             "size (Bx,By)=({},{})  N={}  vars={}  givens={}  seed={}  eps={:.0e}",
@@ -198,25 +207,19 @@ impl Ui for ConsoleUi {
             size.by,
             size.n(),
             size.num_vars(),
-            self.givens.len(),
+            grid.givens().len(),
             self.seed,
             self.epsilon
         )?;
         match (&self.assignment, self.view) {
-            (Some(a), ViewMode::Winner) => {
-                render::render_winner(&mut w, &size, &self.givens, &a.values)
-            }
+            (Some(a), ViewMode::Winner) => render::render_winner(&mut w, grid, &a.values),
             (Some(a), ViewMode::Probabilities) => render::render_probs(&mut w, &size, &a.values),
-            _ => render::render_grid(&mut w, &size, 2, |x, y| match self.givens.get(&(x, y)) {
+            _ => render::render_grid(&mut w, &size, 2, |x, y| match grid.get(x, y) {
                 Some(d) => format!("{d} "),
                 None => ". ".to_string(),
             }),
         }?;
-        writeln!(
-            w,
-            "grid: {}",
-            grid::format_grid(&size, |x, y| self.givens.get(&(x, y)).copied())
-        )
+        writeln!(w, "grid: {grid}")
     }
 }
 

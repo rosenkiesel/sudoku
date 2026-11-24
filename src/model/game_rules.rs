@@ -1,4 +1,4 @@
-use crate::model::{variables, Size};
+use crate::model::{grid_indices, Size};
 
 pub type SparseRow = Vec<(usize, f64)>;
 
@@ -35,7 +35,7 @@ pub fn build_system(size: &Size) -> LinearSystem {
     for x in 0..n {
         for y in 0..n {
             let row: SparseRow = (1..=n)
-                .map(|d| (variables::idx(size, x, y, d as u8), 1.0))
+                .map(|d| (grid_indices::idx(size, x, y, d as u8), 1.0))
                 .collect();
             rows.push((row, 1.0));
         }
@@ -44,7 +44,7 @@ pub fn build_system(size: &Size) -> LinearSystem {
     for x in 0..n {
         for d in 1..=n {
             let row: SparseRow = (0..n)
-                .map(|y| (variables::idx(size, x, y, d as u8), 1.0))
+                .map(|y| (grid_indices::idx(size, x, y, d as u8), 1.0))
                 .collect();
             rows.push((row, 1.0));
         }
@@ -53,7 +53,7 @@ pub fn build_system(size: &Size) -> LinearSystem {
     for y in 0..n {
         for d in 1..=n {
             let row: SparseRow = (0..n)
-                .map(|x| (variables::idx(size, x, y, d as u8), 1.0))
+                .map(|x| (grid_indices::idx(size, x, y, d as u8), 1.0))
                 .collect();
             rows.push((row, 1.0));
         }
@@ -65,7 +65,7 @@ pub fn build_system(size: &Size) -> LinearSystem {
                 let mut row: SparseRow = Vec::with_capacity(n);
                 for x in cy * size.by..(cy + 1) * size.by {
                     for y in cx * size.bx..(cx + 1) * size.bx {
-                        row.push((variables::idx(size, x, y, d as u8), 1.0));
+                        row.push((grid_indices::idx(size, x, y, d as u8), 1.0));
                     }
                 }
                 rows.push((row, 1.0));

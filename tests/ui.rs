@@ -1,4 +1,4 @@
-use sudoku_rs::model::{variables, Size};
+use sudoku_rs::model::{grid_indices, Size};
 use sudoku_rs::ui::console::ConsoleUi;
 use sudoku_rs::ui::{Command, Ui, DEFAULT_EPSILON};
 
@@ -10,7 +10,7 @@ fn rand_keeps_givens() {
     ui.apply(&Command::Rand { seed: Some(42) }).unwrap();
     let req = ui.solve_request().unwrap();
     let s = Size::new(2, 3).unwrap();
-    let t = req.target[variables::idx(&s, 0, 0, 1)];
+    let t = req.target[grid_indices::idx(&s, 0, 0, 1)];
     assert!(
         t > 9.0,
         "given must stay on top of the random base (base in [-1,1] + 10), target = {t}"

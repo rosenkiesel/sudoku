@@ -1,6 +1,6 @@
 pub mod central_path;
 
-use crate::model::constraints::LinearSystem;
+use crate::model::game_rules::LinearSystem;
 use crate::model::request::SolveRequest;
 use std::fmt;
 

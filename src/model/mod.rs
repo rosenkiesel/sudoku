@@ -1,7 +1,7 @@
-pub mod constraints;
-pub mod grid;
+pub mod game_rules;
+pub mod given_grid;
+pub mod grid_indices;
 pub mod request;
-pub mod variables;
 
 use std::fmt;
 
@@ -72,6 +72,8 @@ pub enum ModelError {
     CellOutOfRange { x: usize, y: usize, n: usize },
     DigitOutOfRange { n: u8, max: usize },
     TargetLength { expected: usize, actual: usize },
+    StartLength { expected: usize, actual: usize },
+    InvalidStart,
     InvalidEpsilon { epsilon: f64 },
     InvalidGrid(String),
     NoPuzzle,
@@ -94,6 +96,12 @@ impl fmt::Display for ModelError {
             }
             Self::TargetLength { expected, actual } => {
                 write!(f, "target vector has length {actual}, expected {expected}")
+            }
+            Self::StartLength { expected, actual } => {
+                write!(f, "start vector has length {actual}, expected {expected}")
+            }
+            Self::InvalidStart => {
+                write!(f, "start values must be strictly inside (0, 1)")
             }
             Self::InvalidEpsilon { epsilon } => {
                 write!(f, "epsilon must be a positive finite number, got {epsilon}")

@@ -2,13 +2,9 @@ pub mod console;
 
 use crate::model::request::SolveRequest;
 use crate::solver::Assignment;
-use std::collections::BTreeMap;
 use std::io;
 
 pub const DEFAULT_EPSILON: f64 = 1e-6;
-
-/// Generic helper: givens of a puzzle as (x, y) -> digit.
-pub type Givens = BTreeMap<(usize, usize), u8>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ViewMode {

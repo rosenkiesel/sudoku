@@ -1,5 +1,5 @@
-use crate::model::{variables, Size};
-use crate::ui::Givens;
+use crate::model::given_grid::GivenGrid;
+use crate::model::{grid_indices, Size};
 use std::io::{self, Write};
 
 /// Console-display-only scaling: probabilities are shown as `99 * p` percent,
@@ -14,7 +14,7 @@ pub fn winner(size: &Size, values: &[f64], x: usize, y: usize) -> u8 {
     let mut best = 1_u8;
     let mut best_p = f64::NEG_INFINITY;
     for d in 1..=n {
-        let p = values[variables::idx(size, x, y, d as u8)];
+        let p = values[grid_indices::idx(size, x, y, d as u8)];
         if p > best_p {
             best_p = p;
             best = d as u8;
@@ -122,18 +122,14 @@ pub fn render_grid(
 /// Winner view: argmax digit per cell. Givens get a `*` suffix, conflicting
 /// entries (winner digit duplicated in their row or column) a `c` suffix —
 /// both if both apply. Afterwards the conflicting rows/columns are listed.
-pub fn render_winner(
-    w: &mut impl Write,
-    size: &Size,
-    givens: &Givens,
-    values: &[f64],
-) -> io::Result<()> {
+pub fn render_winner(w: &mut impl Write, grid: &GivenGrid, values: &[f64]) -> io::Result<()> {
+    let size = grid.size();
     let n = size.n();
-    let wins = winners(size, values);
-    let flags = conflict_cells(size, &wins);
-    render_grid(w, size, 3, |x, y| {
+    let wins = winners(&size, values);
+    let flags = conflict_cells(&size, &wins);
+    render_grid(w, &size, 3, |x, y| {
         let mut s = format!("{}", wins[x * n + y]);
-        if givens.contains_key(&(x, y)) {
+        if grid.get(x, y).is_some() {
             s.push('*');
         }
         if flags[x * n + y] {
@@ -144,7 +140,7 @@ pub fn render_winner(
         }
         s
     })?;
-    let (rows, cols) = conflicts(size, &wins);
+    let (rows, cols) = conflicts(&size, &wins);
     writeln!(w, "conflicting rows: {rows:?}")?;
     writeln!(w, "conflicting columns: {cols:?}")?;
     Ok(())
@@ -167,7 +163,7 @@ pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Resu
                     let mut cell = String::new();
                     for j in 0..size.bx {
                         let d = (i * size.bx + j + 1) as u8;
-                        let p = values[variables::idx(size, x, y, d)];
+                        let p = values[grid_indices::idx(size, x, y, d)];
                         if j > 0 {
                             cell.push(' ');
                         }
