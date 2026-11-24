@@ -141,10 +141,13 @@ server which other cookies exist and how to decode them. All values are base64ur
   are strictly inside (0, 1), so always a valid `start`).
 - The cookies are client-controlled: parse defensively, never trust lengths (the existing
   `bx*by <= 64` cap in `Size` applies).
-- Size: for 9×9 each cookie is ≤ ~1 KB base64url; even 12×12 fits per cookie. Only very
-  large grids overflow a single cookie (16×16: N³ = 4096 → ≈ 5.5 KB) — then
-  `sudoku_state` holds only a random session id (that cookie HttpOnly, SameSite=Lax) and
-  the remaining state lives server-side.
-- The cookies contain only puzzle state, no secrets.
+- **No server-side state**: everything lives in the cookies; there is no session store.
+  Size (per cookie, base64url of N³ u8): 9×9 ≈ 1 KB, **12×12 (3,4) ≈ 2.3 KB — fits**;
+  15×15 (3,5) → N³ = 3375 → ≈ 4.5 KB would overflow the 4 KB per-cookie limit. Therefore
+  the web UI only supports sizes up to **12×12** (reject larger `new`/`load` there); the
+  console still supports up to `bx*by <= 64`. (The model/solver itself is not the limit —
+  15×15 = 3375 variables / 900 rule rows works fine, only the cookie transport is.)
+- The cookies contain only puzzle state, no secrets. They are not credentials; still set
+  them with `SameSite=Lax`.
 
 
