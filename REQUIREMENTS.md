@@ -87,6 +87,9 @@ block columns in a row give `By` (their count), and the block width in cells giv
 
 ## 4. Output views
 
+View modes are identified by the short strings `winner` / `probs` (stable identifiers for
+stored state such as cookies; unknown values fall back to `winner`).
+
 ### 4.1 `view winner`
 
 - Per cell the winning digit = `argmax_n p(x, y, n)`, rendered as a grid. Givens get a `*`

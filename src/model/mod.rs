@@ -1,6 +1,7 @@
 pub mod game_rules;
 pub mod given_grid;
 pub mod grid_indices;
+pub mod quantize;
 pub mod request;
 
 use std::fmt;

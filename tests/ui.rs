@@ -30,6 +30,17 @@ fn load_infers_size_without_new() {
 }
 
 #[test]
+fn view_mode_short_strings() {
+    use sudoku_rs::ui::ViewMode;
+    assert_eq!(ViewMode::Winner.as_str(), "winner");
+    assert_eq!(ViewMode::Probabilities.as_str(), "probs");
+    assert_eq!(ViewMode::parse("winner"), Some(ViewMode::Winner));
+    assert_eq!(ViewMode::parse("probs"), Some(ViewMode::Probabilities));
+    assert_eq!(ViewMode::parse("heatmap"), None); // unknown -> caller falls back to default
+    assert_eq!(ViewMode::Winner.to_string(), "winner");
+}
+
+#[test]
 fn eps_commands_adjust_epsilon() {
     let mut ui = ConsoleUi::new();
     ui.apply(&Command::New { bx: 2, by: 3 }).unwrap();

@@ -272,10 +272,9 @@ fn parse_command(line: &str) -> Result<Command, String> {
         "solve" => Ok(Command::Solve),
         "eps+" => Ok(Command::EpsPlus),
         "eps-" => Ok(Command::EpsMinus),
-        "view" => match tokens.get(1) {
-            Some(&"winner") => Ok(Command::View(ViewMode::Winner)),
-            Some(&"probs") => Ok(Command::View(ViewMode::Probabilities)),
-            _ => Err("usage: view winner|probs".to_string()),
+        "view" => match tokens.get(1).and_then(|s| ViewMode::parse(s)) {
+            Some(mode) => Ok(Command::View(mode)),
+            None => Err("usage: view winner|probs".to_string()),
         },
         "show" => Ok(Command::Show),
         "help" | "?" => Ok(Command::Help),
