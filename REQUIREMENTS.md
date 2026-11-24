@@ -117,3 +117,45 @@ stored state such as cookies; unknown values fall back to `winner`).
 
 - No TUI/GUI/web frontend, no persistence of puzzles, no solver selection via the UI,
   no uniqueness proof of the solution.
+
+## 6. Cookie format (web UI session state)
+
+The future web UI keeps the whole UI state in **one cookie** `sudoku_state`, whose value is
+base64url(JSON), so the server can stay stateless:
+
+```json
+{
+  "v": 1,
+  "grid": "530,070,000;600,195,000;098,000,060;…",
+  "seed": 42,
+  "eps": 1e-6,
+  "view": "winner",
+  "start": "<base64url of N³ u8, quantize_unit of the last assignment>"
+}
+```
+
+- `v`: format version (currently `1`). Unknown or missing version → discard the state and
+  start fresh.
+- `grid`: GivenGrid string format (§1.1); the size `(Bx, By)` is inferred via `parse_auto`.
+- `seed`: u64; the random target base is reproduced from it (SplitMix64, as in the console
+  `rand`). If a base is ever set by other means, store the base itself instead as base64url
+  u8 (`quantize_signed`).
+- `eps`: epsilon as a number; clamped to `[1e-12, 1.0]` on load.
+- `view`: `"winner"` or `"probs"`; unknown or missing → `winner` (old cookies with a
+  since-removed mode must not break).
+- `start`: optional; base64url of N³ u8 (quantized last assignment). Decoded with
+  `dequantize_unit` — always strictly inside (0, 1), hence always a valid warm-start
+  `start`. Missing / invalid base64 / wrong length → `default_start` (1/N in every
+  variable).
+
+Rules:
+
+- The cookie is client-controlled: parse defensively, never trust lengths (the existing
+  `bx*by <= 64` cap in `Size` applies), and fall back **per field** as described above
+  instead of rejecting the whole session.
+- Size: for 9×9 the cookie is ≈ 1.2 KB (base64url) — fits the 4 KB cookie limit. For large
+  grids (e.g. 16×16: N³ = 4096 → ≈ 5.5 KB base64) it would overflow; then store only a
+  random session id in the cookie (HttpOnly, SameSite=Lax) and keep the full state
+  server-side.
+- The cookie contains only puzzle state, no secrets.
+

@@ -268,7 +268,9 @@ tests/
   text, view mode as short string (`"winner"`/`"probs"`, unknown values fall back to the
   default), last assignment quantized to u8 (N³ B, `quantize_unit`/`dequantize_unit` —
   dequantized values are strictly inside (0,1), so always a valid warm-start `start`).
-  Total ≈ 1–2 KB. Alternative: session-id cookie + server-side store with full f64 state.
+  Total ≈ 1–2 KB. Cookie format (fields, versioning, fallback rules, size limit):
+  REQUIREMENTS.md §6. Alternative: session-id cookie + server-side store with full f64
+  state.
 
 
 - More frontends (TUI via ratatui, web via axum) — new `Ui` impl only.
