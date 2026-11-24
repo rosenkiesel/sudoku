@@ -127,7 +127,7 @@ base64url(JSON), so the server can stay stateless:
 {
   "v": 1,
   "grid": "530,070,000;600,195,000;098,000,060;…",
-  "seed": 42,
+  "base": "<base64url of N³ u8, quantize_signed of the random target base>",
   "eps": 1e-6,
   "view": "winner",
   "start": "<base64url of N³ u8, quantize_unit of the last assignment>"
@@ -137,9 +137,10 @@ base64url(JSON), so the server can stay stateless:
 - `v`: format version (currently `1`). Unknown or missing version → discard the state and
   start fresh.
 - `grid`: GivenGrid string format (§1.1); the size `(Bx, By)` is inferred via `parse_auto`.
-- `seed`: u64; the random target base is reproduced from it (SplitMix64, as in the console
-  `rand`). If a base is ever set by other means, store the base itself instead as base64url
-  u8 (`quantize_signed`).
+- `base`: base64url of N³ u8, the random target base in [-1, 1] (`quantize_signed`). The
+  cookie stores the base itself (not a seed), so there is no coupling to the RNG; the
+  target vector is rebuilt on `solve` as `base + 10.0·givens`. Missing / invalid base64 /
+  wrong length → zero base.
 - `eps`: epsilon as a number; clamped to `[1e-12, 1.0]` on load.
 - `view`: `"winner"` or `"probs"`; unknown or missing → `winner` (old cookies with a
   since-removed mode must not break).
@@ -153,9 +154,9 @@ Rules:
 - The cookie is client-controlled: parse defensively, never trust lengths (the existing
   `bx*by <= 64` cap in `Size` applies), and fall back **per field** as described above
   instead of rejecting the whole session.
-- Size: for 9×9 the cookie is ≈ 1.2 KB (base64url) — fits the 4 KB cookie limit. For large
-  grids (e.g. 16×16: N³ = 4096 → ≈ 5.5 KB base64) it would overflow; then store only a
-  random session id in the cookie (HttpOnly, SameSite=Lax) and keep the full state
-  server-side.
+- Size: for 9×9 the cookie is ≈ 2.1 KB base64url (base + start ≈ 2·972 B plus grid and
+  overhead) — fits the 4 KB cookie limit. For large grids (e.g. 16×16: N³ = 4096 →
+  ≈ 11 KB base64 for base + start) it would overflow; then store only a random session id
+  in the cookie (HttpOnly, SameSite=Lax) and keep the full state server-side.
 - The cookie contains only puzzle state, no secrets.
 

@@ -264,13 +264,12 @@ tests/
   only the blocking REPL loop.
 - Per-session state, compact enough for a 4 KB cookie: givens as the grid string
   (~100 B, size inferred via `parse_auto`), target base as a quantized u8 vector
-  (N³ B, `model::quantize::quantize_signed`) or just the seed (8 B), epsilon as short
-  text, view mode as short string (`"winner"`/`"probs"`, unknown values fall back to the
-  default), last assignment quantized to u8 (N³ B, `quantize_unit`/`dequantize_unit` —
-  dequantized values are strictly inside (0,1), so always a valid warm-start `start`).
-  Total ≈ 1–2 KB. Cookie format (fields, versioning, fallback rules, size limit):
-  REQUIREMENTS.md §6. Alternative: session-id cookie + server-side store with full f64
-  state.
+  (N³ B, `model::quantize::quantize_signed`), epsilon as short text, view mode as short
+  string (`"winner"`/`"probs"`, unknown values fall back to the default), last assignment
+  quantized to u8 (N³ B, `quantize_unit`/`dequantize_unit` — dequantized values are
+  strictly inside (0,1), so always a valid warm-start `start`). Total ≈ 2 KB for 9×9.
+  Cookie format (fields, versioning, fallback rules, size limit): REQUIREMENTS.md §6.
+  Alternative for large grids: session-id cookie + server-side store with full f64 state.
 
 
 - More frontends (TUI via ratatui, web via axum) — new `Ui` impl only.
