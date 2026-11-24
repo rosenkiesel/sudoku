@@ -1,4 +1,5 @@
 use crate::model::given_grid::GivenGrid;
+use crate::model::is_multiple_of;
 use crate::model::{grid_indices, Size};
 use crate::ui::{conflict_cells, conflicts, winners};
 use std::io::{self, Write};
@@ -21,13 +22,13 @@ pub fn render_grid(
     let n = size.n();
     let width = cell_width * n + (n - 1);
     for x in 0..n {
-        if x > 0 && x.is_multiple_of(size.by) {
+        if x > 0 && is_multiple_of(x, size.by) {
             writeln!(w, "{}", "#".repeat(width))?;
         }
         let mut line = String::new();
         for y in 0..n {
             if y > 0 {
-                line.push(if y.is_multiple_of(size.bx) { '#' } else { ' ' });
+                line.push(if is_multiple_of(y, size.bx) { '#' } else { ' ' });
             }
             line.push_str(&cell_text(x, y));
         }
@@ -98,7 +99,7 @@ pub fn render_probs(w: &mut impl Write, size: &Size, values: &[f64]) -> io::Resu
             writeln!(w, "{line}")?;
         }
         if x + 1 < n {
-            let sep = if (x + 1).is_multiple_of(size.by) {
+            let sep = if is_multiple_of(x + 1, size.by) {
                 '#'
             } else {
                 '-'

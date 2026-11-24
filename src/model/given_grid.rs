@@ -1,4 +1,4 @@
-use crate::model::{ModelError, Size};
+use crate::model::{is_multiple_of, ModelError, Size};
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -132,7 +132,7 @@ impl GivenGrid {
         for x in 0..n {
             let mut row = String::with_capacity(n + size.block_columns());
             for y in 0..n {
-                if y > 0 && y.is_multiple_of(size.bx) {
+                if y > 0 && is_multiple_of(y, size.bx) {
                     row.push(',');
                 }
                 row.push(match self.get(x, y) {

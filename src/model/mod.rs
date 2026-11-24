@@ -61,6 +61,13 @@ impl Size {
     }
 }
 
+/// `i % m == 0` — our own helper because `usize::is_multiple_of` is unstable
+/// on older toolchains (E0658).
+#[allow(clippy::manual_is_multiple_of)]
+pub fn is_multiple_of(i: usize, m: usize) -> bool {
+    i % m == 0
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cell {
     pub x: usize,

@@ -2,6 +2,7 @@
 //! raw 0..1 values as 0..100% color-coded (no DISPLAY_SCALE).
 
 use crate::model::grid_indices;
+use crate::model::is_multiple_of;
 use crate::ui::{conflict_cells, winners, UiState, ViewMode};
 
 const CSS: &str = r#"
@@ -81,7 +82,7 @@ fn html_escape(s: &str) -> String {
 
 fn cell_class(x: usize, y: usize, size: &crate::model::Size, extra: &str) -> String {
     let mut c = String::from("cell");
-    if y > 0 && y.is_multiple_of(size.bx) {
+    if y > 0 && is_multiple_of(y, size.bx) {
         c.push_str(" blockcol");
     }
     if !extra.is_empty() {
@@ -93,7 +94,7 @@ fn cell_class(x: usize, y: usize, size: &crate::model::Size, extra: &str) -> Str
 }
 
 fn row_class(x: usize, size: &crate::model::Size) -> &'static str {
-    if x > 0 && x.is_multiple_of(size.by) {
+    if x > 0 && is_multiple_of(x, size.by) {
         "blockrow"
     } else {
         ""
