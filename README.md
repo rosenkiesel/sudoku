@@ -57,7 +57,8 @@ specs in [REQUIREMENTS.md](REQUIREMENTS.md).
 - [x] `model` – `Size{bx,by}`, variables `p(x,y,n)`, constraints, `SolveRequest { size, target, epsilon }`
 - [x] `solver` – central-path (interior-point) LP with μ-sweep
 - [x] `ui` – console REPL + the two output views
-- [x] `app` – generic game loop over `Solver` and `Ui`
+- [x] `ui` web (feature `web`, default on) – axum on 127.0.0.1:8080, cookie-only state
+- [x] `app` – shared `step()` + generic game loop over `Ui`
 - [x] CI – GitHub Actions (fmt, clippy, build, test) on push/PR, badge above
 
 ## Console usage
@@ -73,6 +74,17 @@ $ cargo run
 > load 530,070,000;600,195,000;098,000,060;800,060,003;400,803,001;700,020,006;060,000,280;000,419,005;000,080,079
 > quit
 ```
+
+## Web UI
+
+```bash
+cargo run -- web     # serves http://127.0.0.1:8080 (loopback only), then open it in a browser
+```
+
+State lives only in cookies (`sudoku_state` manifest + `sudoku_givens`/`sudoku_base`/`sudoku_start`,
+see [REQUIREMENTS.md](REQUIREMENTS.md) §6) — no server-side session. The web UI supports grids up
+to 12×12. The probs view renders the raw 0..100% color-coded. `cargo run --no-default-features`
+builds the console-only binary without the web dependencies.
 
 ## Development
 

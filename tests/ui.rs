@@ -1,14 +1,21 @@
 use sudoku_rs::model::{grid_indices, Size};
 use sudoku_rs::ui::console::ConsoleUi;
-use sudoku_rs::ui::{Command, Ui, DEFAULT_EPSILON};
+use sudoku_rs::ui::{Command, Ui, ViewMode, DEFAULT_EPSILON, MAX_N_CONSOLE};
 
 #[test]
 fn rand_keeps_givens() {
     let mut ui = ConsoleUi::new();
-    ui.apply(&Command::New { bx: 2, by: 3 }).unwrap();
-    ui.apply(&Command::Set { x: 0, y: 0, n: 1 }).unwrap();
-    ui.apply(&Command::Rand { seed: Some(42) }).unwrap();
-    let req = ui.solve_request().unwrap();
+    let state = ui.state();
+    state
+        .apply(&Command::New { bx: 2, by: 3 }, MAX_N_CONSOLE)
+        .unwrap();
+    state
+        .apply(&Command::Set { x: 0, y: 0, n: 1 }, MAX_N_CONSOLE)
+        .unwrap();
+    state
+        .apply(&Command::Rand { seed: Some(42) }, MAX_N_CONSOLE)
+        .unwrap();
+    let req = state.solve_request().unwrap();
     let s = Size::new(2, 3).unwrap();
     let t = req.target[grid_indices::idx(&s, 0, 0, 1)];
     assert!(
@@ -20,18 +27,19 @@ fn rand_keeps_givens() {
 #[test]
 fn load_infers_size_without_new() {
     let mut ui = ConsoleUi::new();
-    ui.apply(&Command::Load(
-        "1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5".to_string(),
-    ))
-    .unwrap();
-    let req = ui.solve_request().unwrap();
+    ui.state()
+        .apply(
+            &Command::Load("1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5".to_string()),
+            MAX_N_CONSOLE,
+        )
+        .unwrap();
+    let req = ui.state().solve_request().unwrap();
     assert_eq!((req.size.bx, req.size.by), (2, 3));
     assert_eq!(req.target.len(), 216);
 }
 
 #[test]
 fn view_mode_short_strings() {
-    use sudoku_rs::ui::ViewMode;
     assert_eq!(ViewMode::Winner.as_str(), "winner");
     assert_eq!(ViewMode::Probabilities.as_str(), "probs");
     assert_eq!(ViewMode::parse("winner"), Some(ViewMode::Winner));
@@ -43,13 +51,16 @@ fn view_mode_short_strings() {
 #[test]
 fn eps_commands_adjust_epsilon() {
     let mut ui = ConsoleUi::new();
-    ui.apply(&Command::New { bx: 2, by: 3 }).unwrap();
-    let e0 = ui.solve_request().unwrap().epsilon;
+    let state = ui.state();
+    state
+        .apply(&Command::New { bx: 2, by: 3 }, MAX_N_CONSOLE)
+        .unwrap();
+    let e0 = state.solve_request().unwrap().epsilon;
     assert_eq!(e0, DEFAULT_EPSILON);
-    ui.apply(&Command::EpsMinus).unwrap();
-    let e1 = ui.solve_request().unwrap().epsilon;
-    ui.apply(&Command::EpsPlus).unwrap();
-    let e2 = ui.solve_request().unwrap().epsilon;
+    state.apply(&Command::EpsMinus, MAX_N_CONSOLE).unwrap();
+    let e1 = state.solve_request().unwrap().epsilon;
+    state.apply(&Command::EpsPlus, MAX_N_CONSOLE).unwrap();
+    let e2 = state.solve_request().unwrap().epsilon;
     assert!((e1 - e0 / 10.0).abs() < 1e-18);
     assert!((e2 - e0).abs() < 1e-18);
 }

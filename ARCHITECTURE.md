@@ -235,10 +235,14 @@ src/
     mod.rs                // trait Solver, Assignment, SolverError
     central_path.rs       // interior point, μ-sweep along the central path
   ui/
-    mod.rs                // generic: trait Ui, Command, ViewMode, DEFAULT_EPSILON
+    mod.rs                // generic: UiState (grid/base/eps/assignment/view + apply), trait Ui,
+                          // Command, ViewMode, parse_command, winners/conflicts, HELP, MAX_N_*
     console/
-      mod.rs              // ConsoleUi (console-specific): REPL, owns size + givens + epsilon
-      render.rs           // the two output views (console-specific rendering)
+      mod.rs              // ConsoleUi (console-specific): REPL around UiState
+      render.rs           // the two output views (console-specific text rendering)
+    web/                  // feature `web`: axum on 127.0.0.1:8080, cookie-only state (REQ §6)
+      mod.rs              // serve(), GET / + POST /command, cookie encode/decode
+      render.rs           // HTML rendering (winner table, color-coded probs 0..100%)
   app.rs                  // run<S: Solver, U: Ui>
 tests/
   model.rs                // constraint counts for (3,3) and (2,3), index mapping, target vector
@@ -256,9 +260,9 @@ tests/
 
 ## 8. Extensions (outlook)
 
-### Web UI (discussion, not implemented)
+### Web UI (implemented, feature `web`)
 
-- New module `src/ui/web/` (e.g. axum): `GET /` renders HTML (winner table, probs heatmap
+- Module `src/ui/web/` (axum, `cargo run -- web` → 127.0.0.1:8080): `GET /` renders HTML (winner table, probs heatmap
   color-coded over the raw 0..1 values — no `DISPLAY_SCALE`), `POST /command` applies one
   command per request; `app` exposes a per-request `step(ui, solver, command)` instead of
   only the blocking REPL loop.

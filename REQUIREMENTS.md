@@ -113,12 +113,14 @@ stored state such as cookies; unknown values fall back to `winner`).
 - 9×9 → 3×3 mini-grid with digits 1..9 as `3i + j + 1`; 6×6 `(Bx,By) = (2,3)` → 3×2 mini-grid
   with digits 1..6 as `2i + j + 1`.
 
-## 5. Non-goals for v1
+## 5. Non-goals
 
-- No TUI/GUI/web frontend, no persistence of puzzles, no solver selection via the UI,
-  no uniqueness proof of the solution.
+- No TUI frontend, no solver selection via the UI, no uniqueness proof of the solution.
+  (The web frontend exists: feature `web`, `src/ui/web/`, `cargo run -- web`.)
 
 ## 6. Cookie format (web UI session state)
+
+Implemented in `src/ui/web/` (feature `web`; `cargo run -- web` → http://127.0.0.1:8080).
 
 The web UI state is split across **several cookies** (the 4 KB limit applies per cookie,
 so splitting gives more headroom). `sudoku_state` is the manifest: its version tells the

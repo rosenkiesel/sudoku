@@ -132,7 +132,7 @@ impl GivenGrid {
         for x in 0..n {
             let mut row = String::with_capacity(n + size.block_columns());
             for y in 0..n {
-                if y > 0 && y % size.bx == 0 {
+                if y > 0 && y.is_multiple_of(size.bx) {
                     row.push(',');
                 }
                 row.push(match self.get(x, y) {

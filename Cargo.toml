@@ -2,7 +2,16 @@
 name = "sudoku-rs"
 version = "0.1.0"
 edition = "2021"
-description = "Probabilistic sudoku: p(x,y,n) variables, linear rule constraints, central-path LP solve"
+description = "Probabilistic sudoku: p(x,y,n) variables, linear rule constraints, central-path LP solve; console and web UI"
 license = "GPL-3.0-only"
 
+[features]
+default = ["web"]
+web = ["dep:axum", "dep:tokio", "dep:serde", "dep:serde_json", "dep:base64"]
+
 [dependencies]
+axum = { version = "0.8", optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"], optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+base64 = { version = "0.22", optional = true }
