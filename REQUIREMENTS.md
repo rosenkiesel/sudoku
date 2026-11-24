@@ -120,43 +120,31 @@ stored state such as cookies; unknown values fall back to `winner`).
 
 ## 6. Cookie format (web UI session state)
 
-The future web UI keeps the whole UI state in **one cookie** `sudoku_state`, whose value is
-base64url(JSON), so the server can stay stateless:
+The web UI state is split across **several cookies** (the 4 KB limit applies per cookie,
+so splitting gives more headroom). `sudoku_state` is the manifest: its version tells the
+server which other cookies exist and how to decode them. All values are base64url-encoded
+(raw `;`, `,`, `"` are not allowed in cookie values).
 
-```json
-{
-  "v": 1,
-  "grid": "530,070,000;600,195,000;098,000,060;…",
-  "base": "<base64url of N³ u8, quantize_signed of the random target base>",
-  "eps": 1e-6,
-  "view": "winner",
-  "start": "<base64url of N³ u8, quantize_unit of the last assignment>"
-}
-```
+| cookie | decoded content |
+|---|---|
+| `sudoku_state` | JSON `{"v":1,"eps":1e-6,"view":"winner"}` — version + small fields |
+| `sudoku_givens` | GivenGrid string (§1.1); size `(Bx, By)` inferred via `parse_auto` |
+| `sudoku_base` | N³ u8, the random target base in [-1, 1] (`quantize_signed`); target is rebuilt on `solve` as `base + 10.0·givens` |
+| `sudoku_start` | optional N³ u8, the last assignment (`quantize_unit`) for the warm start |
 
-- `v`: format version (currently `1`). Unknown or missing version → discard the state and
-  start fresh.
-- `grid`: GivenGrid string format (§1.1); the size `(Bx, By)` is inferred via `parse_auto`.
-- `base`: base64url of N³ u8, the random target base in [-1, 1] (`quantize_signed`). The
-  cookie stores the base itself (not a seed), so there is no coupling to the RNG; the
-  target vector is rebuilt on `solve` as `base + 10.0·givens`. Missing / invalid base64 /
-  wrong length → zero base.
-- `eps`: epsilon as a number; clamped to `[1e-12, 1.0]` on load.
-- `view`: `"winner"` or `"probs"`; unknown or missing → `winner` (old cookies with a
-  since-removed mode must not break).
-- `start`: optional; base64url of N³ u8 (quantized last assignment). Decoded with
-  `dequantize_unit` — always strictly inside (0, 1), hence always a valid warm-start
-  `start`. Missing / invalid base64 / wrong length → `default_start` (1/N in every
-  variable).
+- `v` (currently `1`): read `sudoku_state` first, then only the cookies known for that
+  version — format changes stay backward compatible and stale cookies are simply ignored.
+- Fallbacks per cookie (never reject the whole session): missing/invalid `sudoku_givens` →
+  fresh empty session; `sudoku_base` missing/invalid/wrong length → zero base; `eps`
+  clamped to `[1e-12, 1.0]`; `view` unknown/missing → `winner`; `sudoku_start`
+  missing/invalid/wrong length → `default_start` (1/N in every variable; dequantized values
+  are strictly inside (0, 1), so always a valid `start`).
+- The cookies are client-controlled: parse defensively, never trust lengths (the existing
+  `bx*by <= 64` cap in `Size` applies).
+- Size: for 9×9 each cookie is ≤ ~1 KB base64url; even 12×12 fits per cookie. Only very
+  large grids overflow a single cookie (16×16: N³ = 4096 → ≈ 5.5 KB) — then
+  `sudoku_state` holds only a random session id (that cookie HttpOnly, SameSite=Lax) and
+  the remaining state lives server-side.
+- The cookies contain only puzzle state, no secrets.
 
-Rules:
-
-- The cookie is client-controlled: parse defensively, never trust lengths (the existing
-  `bx*by <= 64` cap in `Size` applies), and fall back **per field** as described above
-  instead of rejecting the whole session.
-- Size: for 9×9 the cookie is ≈ 2.1 KB base64url (base + start ≈ 2·972 B plus grid and
-  overhead) — fits the 4 KB cookie limit. For large grids (e.g. 16×16: N³ = 4096 →
-  ≈ 11 KB base64 for base + start) it would overflow; then store only a random session id
-  in the cookie (HttpOnly, SameSite=Lax) and keep the full state server-side.
-- The cookie contains only puzzle state, no secrets.
 
