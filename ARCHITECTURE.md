@@ -267,9 +267,11 @@ tests/
   (N³ B, `model::quantize::quantize_signed`), epsilon as short text, view mode as short
   string (`"winner"`/`"probs"`, unknown values fall back to the default), last assignment
   quantized to u8 (N³ B, `quantize_unit`/`dequantize_unit` — dequantized values are
-  strictly inside (0,1), so always a valid warm-start `start`). Total ≈ 2 KB for 9×9.
-  Cookie format (fields, versioning, fallback rules, size limit): REQUIREMENTS.md §6.
-  Alternative for large grids: session-id cookie + server-side store with full f64 state.
+  strictly inside (0,1), so always a valid warm-start `start`). Total ≈ 2 KB for 9×9,
+  split across several cookies (`sudoku_state` manifest with version + `sudoku_givens` /
+  `sudoku_base` / `sudoku_start`); the 4 KB limit applies per cookie. Cookie format:
+  REQUIREMENTS.md §6. Alternative for large grids: session-id cookie + server-side store
+  with full f64 state.
 
 
 - More frontends (TUI via ratatui, web via axum) — new `Ui` impl only.
