@@ -16,7 +16,8 @@ commands:
   rand [seed]       fill the target base with uniform random in [-1,+1] (givens are kept)
   set <x> <y> <n>   add a given: target[idx(x,y,n)] += 10.0 on top of the base
   unset <x> <y>     remove the given at cell (x,y)
-  load <grid>       load givens from a grid string (rows ';', block columns ',')
+  load <grid>       load givens from a grid string (rows ';', block columns ',');
+                    without a current puzzle the size (Bx,By) is inferred from the string
   solve             solve along the central path down to the current epsilon
   eps+ | eps-       multiply / divide the current epsilon by 10
   view winner       argmax per cell; givens '*', conflicting entries 'c' (block borders '#')
@@ -138,15 +139,28 @@ impl Ui for ConsoleUi {
                     self.assignment = None;
                 }
             }
-            Command::Load(text) => match self.require_size() {
-                Ok(size) => match GivenGrid::parse(&size, text) {
+            Command::Load(text) => match &self.grid {
+                // puzzle exists: parse with its size
+                Some(grid) => {
+                    let size = grid.size();
+                    match GivenGrid::parse(&size, text) {
+                        Ok(grid) => {
+                            self.grid = Some(grid);
+                            self.assignment = None;
+                        }
+                        Err(e) => self.note(&format!("error: {e}")),
+                    }
+                }
+                // no puzzle yet: infer the size from the string's separators
+                None => match GivenGrid::parse_auto(text) {
                     Ok(grid) => {
+                        let size = grid.size();
+                        self.base = vec![0.0; size.num_vars()];
                         self.grid = Some(grid);
                         self.assignment = None;
                     }
                     Err(e) => self.note(&format!("error: {e}")),
                 },
-                Err(e) => self.note(&format!("error: {e}")),
             },
             Command::Clear => {
                 if let Some(grid) = &mut self.grid {

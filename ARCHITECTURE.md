@@ -228,7 +228,7 @@ src/
   model/
     mod.rs                // Size { bx, by }, N = bx*by, Cell, Digit, validation
     grid_indices.rs       // idx(x, y, n), num_vars, iteration
-    given_grid.rs         // GivenGrid: givens + dimensions() + parse/format (';' rows, ',' block cols)
+    given_grid.rs         // GivenGrid: givens + dimensions() + parse/parse_auto/format (';' rows, ',' block cols; size inferred from separators)
     game_rules.rs         // build_system(size) -> LinearSystem   (rules + bounds only)
     request.rs            // SolveRequest { size, target, epsilon, start }, default_start
   solver/

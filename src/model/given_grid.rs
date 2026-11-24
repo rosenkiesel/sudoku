@@ -54,8 +54,51 @@ impl GivenGrid {
         self.givens.clear();
     }
 
-    /// Parse a grid string. Separators `,` and `;` are optional (a flat N²
-    /// string also parses).
+    /// Parse a grid string and infer the size `(Bx, By)` from the separators:
+    /// `;`-separated rows give N, the `,`-separated block columns in a row give
+    /// `By` (segment count), and the segment length gives `Bx` (N = Bx·By).
+    /// A flat N² string without separators is read as a square grid
+    /// (Bx = By = √N) when N is a perfect square.
+    pub fn parse_auto(text: &str) -> Result<Self, ModelError> {
+        if text.contains(';') || text.contains(',') {
+            let rows: Vec<&str> = text.split(';').collect();
+            let n = rows.len();
+            let first = rows[0].split(',').collect::<Vec<_>>();
+            let by = first.len();
+            let bx = first[0].chars().count();
+            for row in &rows {
+                let segs: Vec<&str> = row.split(',').collect();
+                if segs.len() != by || segs.iter().any(|s| s.chars().count() != bx) {
+                    return Err(ModelError::InvalidGrid(format!(
+                        "inconsistent separators: row '{row}' does not match {by} block columns of width {bx}"
+                    )));
+                }
+            }
+            if bx == 0 || by == 0 || bx * by != n {
+                return Err(ModelError::InvalidGrid(format!(
+                    "inconsistent grid: {n} rows do not match Bx={bx} x By={by}"
+                )));
+            }
+            let size = Size::new(bx, by)?;
+            Self::parse(&size, text)
+        } else {
+            // flat N^2 string: grid edge N = sqrt(len); assume square blocks,
+            // i.e. Bx = By = sqrt(N), when that is an integer
+            let len = text.chars().count();
+            let n = (len as f64).sqrt().round() as usize;
+            let b = (n as f64).sqrt().round() as usize;
+            if n * n != len || b * b != n {
+                return Err(ModelError::InvalidGrid(format!(
+                    "cannot infer size from a flat string of length {len}; use new <bx> <by> first or add ';' / ',' separators"
+                )));
+            }
+            let size = Size::new(b, b)?;
+            Self::parse(&size, text)
+        }
+    }
+
+    /// Parse a grid string for a known size. Separators `,` and `;` are
+    /// optional (a flat N² string also parses).
     pub fn parse(size: &Size, text: &str) -> Result<Self, ModelError> {
         let n = size.n();
         let chars: Vec<char> = text.chars().filter(|c| *c != ',' && *c != ';').collect();

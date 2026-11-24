@@ -18,6 +18,18 @@ fn rand_keeps_givens() {
 }
 
 #[test]
+fn load_infers_size_without_new() {
+    let mut ui = ConsoleUi::new();
+    ui.apply(&Command::Load(
+        "1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5".to_string(),
+    ))
+    .unwrap();
+    let req = ui.solve_request().unwrap();
+    assert_eq!((req.size.bx, req.size.by), (2, 3));
+    assert_eq!(req.target.len(), 216);
+}
+
+#[test]
 fn eps_commands_adjust_epsilon() {
     let mut ui = ConsoleUi::new();
     ui.apply(&Command::New { bx: 2, by: 3 }).unwrap();

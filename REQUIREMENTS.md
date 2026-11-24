@@ -23,7 +23,7 @@ REPL continues.
 | `view winner` | winner view (§4.1) |
 | `view probs` | probability view (§4.2) |
 | `show` | re-render: grid, grid string and header |
-| `load <string>` | grid in string format (§1.1); each digit becomes a given |
+| `load <string>` | grid in string format (§1.1); each digit becomes a given. Without a current puzzle, the size `(Bx,By)` is inferred from the string's separators |
 | `clear` | remove all givens (the random target base stays) |
 | `help` | print the command list |
 | `quit` | exit |
@@ -41,6 +41,11 @@ then hex `a..`; `.` or `0` means empty.
 - 6×6 `(Bx,By)=(2,3)`: `1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5`
 
 The console prints the current grid in this format after every command (`grid: …`).
+
+The size is inferred from the string itself: `;`-separated rows give `N`, the `,`-separated
+block columns in a row give `By` (their count), and the block width in cells gives `Bx`
+(must satisfy `N = Bx·By`). A flat N² string without separators is read as a square grid
+(`Bx = By = √N`) when `N` is a perfect square; otherwise `new <bx> <by>` is required first.
 
 ## 2. Target vector semantics
 

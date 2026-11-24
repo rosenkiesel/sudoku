@@ -97,6 +97,26 @@ fn given_grid_string_format() {
 }
 
 #[test]
+fn given_grid_infers_size_from_string() {
+    use sudoku_rs::model::given_grid::GivenGrid;
+    // separators give N (rows) and (Bx, By): 6 rows, 3 block columns of width 2
+    let g = GivenGrid::parse_auto("1.,3.,5.;.4,.6,.2;5.,.2,.4;.3,4.,.1;4.,.1,2.;.1,.3,.5").unwrap();
+    assert_eq!(g.dimensions(), (2, 3));
+    assert_eq!(g.givens().len(), 18);
+
+    let t9 = "530,070,000;600,195,000;098,000,060;800,060,003;400,803,001;700,020,006;060,000,280;000,419,005;000,080,079";
+    assert_eq!(GivenGrid::parse_auto(t9).unwrap().dimensions(), (3, 3));
+
+    // flat N^2 string without separators: square grid when N is a perfect square
+    let flat9 = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+    assert_eq!(GivenGrid::parse_auto(flat9).unwrap().dimensions(), (3, 3));
+
+    // inconsistent separators / non-square flat string -> error
+    assert!(GivenGrid::parse_auto("1.,2.;3.4").is_err());
+    assert!(GivenGrid::parse_auto("123456").is_err());
+}
+
+#[test]
 fn request_validation() {
     use sudoku_rs::model::request::default_start;
     let s = Size::new(2, 3).unwrap();
