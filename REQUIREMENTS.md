@@ -152,4 +152,18 @@ server which other cookies exist and how to decode them. All values are base64ur
 - The cookies contain only puzzle state, no secrets. They are not credentials; still set
   them with `SameSite=Lax`.
 
+### Client-side mode (wasm)
+
+- If the browser supports WebAssembly (feature detection at page load: `WebAssembly` +
+  trial `instantiate`), the wasm build of `model` + `solver` runs `solve` **client-side**:
+  the browser renders the result locally (same two views as the server-rendered HTML) and
+  **updates the cookies itself**.
+- Consistency is guaranteed by construction: the cookie codec (`encode_cookies` /
+  `state_from_cookies` — base64url + `quantize_*`) is implemented once in Rust and
+  exported to both the axum server and the wasm module, so the browser writes
+  byte-identical cookies (`sudoku_state` v1 manifest, `sudoku_givens`, `sudoku_base`,
+  `sudoku_start`).
+- If wasm is unavailable (old browser, CSP/enterprise policy), all commands fall back to
+  `POST /api/command`; the server runs the same `app::step` and writes the same cookies.
+
 

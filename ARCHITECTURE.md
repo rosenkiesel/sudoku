@@ -275,7 +275,9 @@ tests/
   split across several cookies (`sudoku_state` manifest with version + `sudoku_givens` /
   `sudoku_base` / `sudoku_start`); the 4 KB limit applies per cookie, so the web UI is
   cookie-only and supports up to 12×12 — **no server-side state**. Cookie format:
-  REQUIREMENTS.md §6.
+  REQUIREMENTS.md §6. With wasm available, the browser solves/renders locally and updates
+  the cookies itself via the same Rust cookie codec (exported to wasm); without wasm,
+  commands fall back to `POST /api/command` on the server.
 
 
 - More frontends (TUI via ratatui, web via axum) — new `Ui` impl only.
