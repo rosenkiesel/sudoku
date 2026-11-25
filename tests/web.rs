@@ -19,6 +19,9 @@ fn cookie_roundtrip() {
     state
         .apply(&Command::Rand { seed: Some(42) }, MAX_N_CONSOLE)
         .unwrap();
+    state
+        .apply(&Command::Rand { seed: Some(7) }, MAX_N_CONSOLE)
+        .unwrap();
     state.apply(&Command::EpsMinus, MAX_N_CONSOLE).unwrap();
     state
         .apply(&Command::View(ViewMode::Probabilities), MAX_N_CONSOLE)
@@ -35,6 +38,7 @@ fn cookie_roundtrip() {
     assert_eq!(grid.dimensions(), (2, 3));
     assert_eq!(grid.format(), GRID_6);
     assert_eq!(back.view, ViewMode::Probabilities);
+    assert_eq!(back.seeds, vec![7, 42]); // seed history, most recent first
     assert!((back.epsilon - 1e-7).abs() < 1e-18);
     assert_eq!(back.base.len(), 216);
     assert!(back.base.iter().any(|&v| v != 0.0));
@@ -88,7 +92,7 @@ fn corrupt_cookies_fall_back_per_field() {
 }
 
 #[test]
-fn server_serves_index_on_loopback() {
+fn server_loopback_get_and_api() {
     use std::io::{Read, Write};
     std::thread::spawn(|| {
         let _ = sudoku_rs::ui::web::serve();
@@ -105,5 +109,27 @@ fn server_serves_index_on_loopback() {
         &resp[..40.min(resp.len())]
     );
     assert!(resp.contains("sudoku-rs"));
-    assert!(resp.contains("no puzzle yet"));
+    assert!(resp.contains("id=\"app\""));
+
+    // POST /api/command: no wasm in this test -> server computes
+    let body = r#"{"cmd":"new 3 3","cookies":[]}"#;
+    let req = format!(
+        "POST /api/command HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.len(), body
+    );
+    let mut s = std::net::TcpStream::connect("127.0.0.1:8080").expect("loopback connect");
+    s.write_all(req.as_bytes()).unwrap();
+    let mut resp = String::new();
+    s.read_to_string(&mut resp).unwrap();
+    assert!(
+        resp.starts_with("HTTP/1.1 200"),
+        "got: {}",
+        &resp[..40.min(resp.len())]
+    );
+    assert!(
+        resp.contains("sudoku_state"),
+        "api must return cookie pairs"
+    );
+    assert!(!resp.contains("530,070,000")); // fresh 3x3 has empty grid
+    assert!(resp.contains("\"grid\":\"...") || resp.contains("null") || resp.contains("grid"));
 }

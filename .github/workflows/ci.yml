@@ -21,3 +21,13 @@ jobs:
         run: cargo build
       - name: Test
         run: cargo test
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Check wasm build (model+solver+cookie codec)
+        run: cargo check --target wasm32-unknown-unknown --no-default-features --features wasm

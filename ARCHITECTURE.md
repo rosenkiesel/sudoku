@@ -240,9 +240,12 @@ src/
     console/
       mod.rs              // ConsoleUi (console-specific): REPL around UiState
       render.rs           // the two output views (console-specific text rendering)
+    cookie.rs             // feature web|wasm: shared cookie codec (StateJson <-> cookies, byte-identical)
     web/                  // feature `web`: axum on 127.0.0.1:8080, cookie-only state (REQ §6)
-      mod.rs              // serve(), GET / + POST /command, cookie encode/decode
-      render.rs           // HTML rendering (winner table, color-coded probs 0..100%)
+      mod.rs              // serve(), GET / + /static/app.js, POST /command (no-JS), POST /api/command (JSON fallback)
+      render.rs           // HTML shell + CSS
+      static/app.js       // client JS: wasm mode (local solve/render/cookies) or /api/command fallback; §7 interactions
+  wasm.rs                 // feature `wasm`: wasm-bindgen exports cookie_decode/cookie_encode/rand_base/solve
   app.rs                  // run<S: Solver, U: Ui>
 tests/
   model.rs                // constraint counts for (3,3) and (2,3), index mapping, target vector

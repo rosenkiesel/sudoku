@@ -152,7 +152,7 @@ server which other cookies exist and how to decode them. All values are base64ur
 - The cookies contain only puzzle state, no secrets. They are not credentials; still set
   them with `SameSite=Lax`.
 
-### Client-side mode (wasm)
+### Client-side mode (wasm) — implemented (feature `wasm`, `src/wasm.rs` + `src/ui/web/static/app.js`)
 
 - If the browser supports WebAssembly (feature detection at page load: `WebAssembly` +
   trial `instantiate`), the wasm build of `model` + `solver` runs `solve` **client-side**:
@@ -166,7 +166,7 @@ server which other cookies exist and how to decode them. All values are base64ur
 - If wasm is unavailable (old browser, CSP/enterprise policy), all commands fall back to
   `POST /api/command`; the server runs the same `app::step` and writes the same cookies.
 
-## 7. Web UI interaction
+## 7. Web UI interaction — implemented (`src/ui/web/static/app.js`)
 
 Comfortable mouse interaction on the grid (works in both modes — wasm client-side and
 server fallback — and always updates the cookies via the shared Rust codec):

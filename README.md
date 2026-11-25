@@ -81,10 +81,23 @@ $ cargo run
 cargo run -- web     # serves http://127.0.0.1:8080 (loopback only), then open it in a browser
 ```
 
-State lives only in cookies (`sudoku_state` manifest + `sudoku_givens`/`sudoku_base`/`sudoku_start`,
+State lives only in cookies (`sudoku_state` manifest + `sudoku_givens`/`sudoku_base`/`sudoku_start`/`sudoku_seeds`,
 see [REQUIREMENTS.md](REQUIREMENTS.md) §6) — no server-side session. The web UI supports grids up
-to 12×12. The probs view renders the raw 0..100% color-coded. `cargo run --no-default-features`
-builds the console-only binary without the web dependencies.
+to 12×12. The probs view renders the raw 0..100% color-coded. Click a given cell to delete it,
+click an empty cell for a digit popup; the rand button uses a fresh time-based seed with a
+dropdown of the last ≤ 8 seeds (§7).
+
+**Client-side wasm:** with the wasm build deployed, the browser solves/renders locally and
+updates the cookies itself (same Rust cookie codec → byte-identical cookies). Build it with:
+
+```bash
+cargo install wasm-pack
+wasm-pack build --target web --no-default-features --features wasm --out-dir src/ui/web/static/pkg
+```
+
+Without wasm (or without the deployed pkg) the page automatically falls back to
+`POST /api/command`, where the server runs the same `app::step` and returns state + cookies.
+`cargo run --no-default-features` builds the console-only binary without the web dependencies.
 
 ## Development
 

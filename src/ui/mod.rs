@@ -1,4 +1,6 @@
 pub mod console;
+#[cfg(any(feature = "web", feature = "wasm"))]
+pub mod cookie;
 #[cfg(feature = "web")]
 pub mod web;
 
@@ -16,6 +18,8 @@ pub const DEFAULT_SEED: u64 = 0x5EED_5EED_5EED_5EED;
 pub const MAX_N_CONSOLE: usize = 64;
 /// Largest grid edge N the web UI allows (cookie size limit, REQUIREMENTS §6: up to 12×12).
 pub const MAX_N_WEB: usize = 12;
+/// Number of recently used `rand` seeds kept in the `sudoku_seeds` cookie (REQUIREMENTS §7).
+pub const MAX_SEEDS: usize = 8;
 
 pub const HELP: &str = "\
 commands:
@@ -116,6 +120,8 @@ pub struct UiState {
     pub epsilon: f64,
     pub assignment: Option<Assignment>,
     pub view: ViewMode,
+    /// recently used `rand` seeds, most recent first (≤ MAX_SEEDS)
+    pub seeds: Vec<u64>,
 }
 
 impl UiState {
@@ -127,6 +133,7 @@ impl UiState {
             epsilon: DEFAULT_EPSILON,
             assignment: None,
             view: ViewMode::Winner,
+            seeds: Vec::new(),
         }
     }
 
@@ -157,6 +164,10 @@ impl UiState {
                     .map(|_| rng.next_f64() * 2.0 - 1.0)
                     .collect();
                 self.assignment = None;
+                // seed history: most recent first, capped at MAX_SEEDS
+                self.seeds.retain(|&s| s != self.seed);
+                self.seeds.insert(0, self.seed);
+                self.seeds.truncate(MAX_SEEDS);
                 Ok(None)
             }
             Command::Set { x, y, n } => {
