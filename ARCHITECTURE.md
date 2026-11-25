@@ -242,9 +242,11 @@ src/
       render.rs           // the two output views (console-specific text rendering)
     cookie.rs             // feature web|wasm: shared cookie codec (StateJson <-> cookies, byte-identical)
     web/                  // feature `web`: axum on 127.0.0.1:8080, cookie-only state (REQ §6)
-      mod.rs              // serve(), GET / + /static/app.js, POST /command (no-JS), POST /api/command (JSON fallback)
-      render.rs           // HTML shell + CSS
-      static/app.js       // client JS: wasm mode (local solve/render/cookies) or /api/command fallback; §7 interactions
+      mod.rs              // serve(), GET / (full server-rendered page, no JS needed),
+                          // POST /command (no-JS form), POST /api/command (JSON API)
+      render.rs           // full server-side HTML rendering (givens/winner/probs tables)
+      static/app.js       // progressive enhancement only active with wasm: local render/solve,
+                          // self-updated cookies, §7 mouse interaction
   wasm.rs                 // feature `wasm`: wasm-bindgen exports cookie_decode/cookie_encode/rand_base/solve
   app.rs                  // run<S: Solver, U: Ui>
 tests/

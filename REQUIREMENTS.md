@@ -168,8 +168,16 @@ server which other cookies exist and how to decode them. All values are base64ur
 
 ## 7. Web UI interaction — implemented (`src/ui/web/static/app.js`)
 
-Comfortable mouse interaction on the grid (works in both modes — wasm client-side and
-server fallback — and always updates the cookies via the shared Rust codec):
+**No-JS requirement:** the web UI must work **entirely without JavaScript** — `GET /`
+renders the full page server-side from the cookies and every command is a plain form
+POST to `/command` (server runs `app::step`, sets the cookies, redirects back; `rand`
+without a seed gets a time-based seed server-side). JavaScript/wasm is only progressive
+enhancement: with wasm the browser additionally renders/solves locally, updates the
+cookies itself and offers the mouse interaction below. `POST /api/command` is the JSON
+API for JS clients without wasm.
+
+Comfortable mouse interaction on the grid (progressive enhancement, requires JS/wasm;
+cookies are always updated via the shared Rust codec):
 
 1. **Click on a cell with a given** → removes the given (`unset <x> <y>`).
 2. **Click on an empty cell** → popup with the digits `1..=N` to choose from → sets the

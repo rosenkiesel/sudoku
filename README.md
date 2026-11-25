@@ -81,7 +81,9 @@ $ cargo run
 cargo run -- web     # serves http://127.0.0.1:8080 (loopback only), then open it in a browser
 ```
 
-State lives only in cookies (`sudoku_state` manifest + `sudoku_givens`/`sudoku_base`/`sudoku_start`/`sudoku_seeds`,
+Works **entirely without JavaScript**: `GET /` renders the full page server-side from the
+cookies and every command is a plain form POST to `/command` (REQUIREMENTS §7). State lives
+only in cookies (`sudoku_state` manifest + `sudoku_givens`/`sudoku_base`/`sudoku_start`/`sudoku_seeds`,
 see [REQUIREMENTS.md](REQUIREMENTS.md) §6) — no server-side session. The web UI supports grids up
 to 12×12. The probs view renders the raw 0..100% color-coded. Click a given cell to delete it,
 click an empty cell for a digit popup; the rand button uses a fresh time-based seed with a

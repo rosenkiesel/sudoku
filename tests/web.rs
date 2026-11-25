@@ -109,7 +109,8 @@ fn server_loopback_get_and_api() {
         &resp[..40.min(resp.len())]
     );
     assert!(resp.contains("sudoku-rs"));
-    assert!(resp.contains("id=\"app\""));
+    assert!(resp.contains("no puzzle yet")); // server-rendered, works without JS
+    assert!(resp.contains("<form"));
 
     // POST /api/command: no wasm in this test -> server computes
     let body = r#"{"cmd":"new 3 3","cookies":[]}"#;

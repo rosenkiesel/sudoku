@@ -1,12 +1,12 @@
 //! Web UI (feature `web`): axum server on 127.0.0.1:8080 (loopback only).
 //!
-//! - `GET /` serves the HTML shell; the page JS (`/static/app.js`) renders the
-//!   state and handles interaction (REQUIREMENTS §7).
-//! - With wasm available, the browser decodes/encodes cookies and solves fully
-//!   client-side via the wasm exports (`src/wasm.rs`) — cookies stay
-//!   byte-identical because the same Rust cookie codec is used.
-//! - Without wasm, the page falls back to `POST /api/command` (JSON in/out);
-//!   `POST /command` (form) remains as a no-JS fallback.
+//! - `GET /` renders the **full page server-side** from the cookies — the UI
+//!   works entirely without JavaScript (forms POST to `/command`).
+//! - With wasm available, `static/app.js` takes over as progressive
+//!   enhancement: local render, local solve via the wasm exports
+//!   (`src/wasm.rs`), self-updated cookies (same Rust codec → byte-identical)
+//!   and the §7 mouse interaction.
+//! - `POST /api/command` is the JSON API (for JS clients without wasm).
 //! - **No server-side state** — everything lives in the cookies (REQUIREMENTS §6).
 
 pub mod render;
@@ -38,8 +38,15 @@ pub fn serve() -> Result<(), Box<dyn std::error::Error>> {
     })
 }
 
-async fn index() -> Html<String> {
-    Html(render::shell())
+/// Full server-rendered page from the cookies — works without any JavaScript.
+async fn index(headers: HeaderMap) -> Response {
+    let (state, note) = state_from_cookies(&cookie_map(&headers));
+    let mut resp = Html(render::page(&state, &note)).into_response();
+    if !note.is_empty() {
+        // flash note: clear it again right away
+        set_cookie(&mut resp, "sudoku_note", "", 0);
+    }
+    resp
 }
 
 async fn app_js() -> Response {
@@ -55,7 +62,7 @@ struct CmdForm {
     cmd: String,
 }
 
-/// No-JS fallback: form POST → run command → set cookies → redirect to /.
+/// No-JS form POST → run command → set cookies → redirect to /.
 async fn command_form(headers: HeaderMap, Form(form): Form<CmdForm>) -> Response {
     let mut state = state_from_cookies(&cookie_map(&headers)).0;
     let cmd = match parse_command(form.cmd.trim()) {
@@ -70,6 +77,18 @@ async fn command_form(headers: HeaderMap, Form(form): Form<CmdForm>) -> Response
             );
             return resp;
         }
+    };
+    // `rand` without seed (no-JS button): time-based seed, generated server-side
+    let cmd = match cmd {
+        Command::Rand { seed: None } => Command::Rand {
+            seed: Some(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_nanos() as u64)
+                    .unwrap_or(crate::ui::DEFAULT_SEED),
+            ),
+        },
+        other => other,
     };
     let msg = app::step(&mut state, &CentralPathSolver::new(), &cmd, MAX_N_WEB);
     let mut resp = Redirect::to("/").into_response();

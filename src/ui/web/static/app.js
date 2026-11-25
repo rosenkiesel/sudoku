@@ -9,6 +9,10 @@ let wasm = null;          // wasm module (cookie_decode/cookie_encode/rand_base/
 let state = null;         // StateJson: {grid, eps, view, base, start, seeds, note}
 let solveResult = null;   // {values, winners, conflict_rows, conflict_cols} from last solve
 
+// Progressive enhancement: the page is fully rendered server-side and works
+// without JS. Only when the wasm module loads do we take over (local render,
+// local solve, self-updated cookies, mouse interaction). Without wasm we
+// leave the server-rendered DOM alone and the plain forms keep working.
 async function boot() {
   if (typeof WebAssembly === "object") {
     try {
@@ -17,8 +21,7 @@ async function boot() {
       wasm = mod;
     } catch (e) { wasm = null; }
   }
-  document.getElementById("randbtn").textContent =
-    "rand (new time seed)" + (wasm ? "" : " [server mode]");
+  if (!wasm) return; // no-JS / no-wasm: server-rendered page + form POSTs
   await loadState();
   bindUi();
   render();
