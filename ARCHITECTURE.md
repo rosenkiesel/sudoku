@@ -277,7 +277,9 @@ tests/
   cookie-only and supports up to 12×12 — **no server-side state**. Cookie format:
   REQUIREMENTS.md §6. With wasm available, the browser solves/renders locally and updates
   the cookies itself via the same Rust cookie codec (exported to wasm); without wasm,
-  commands fall back to `POST /api/command` on the server.
+  commands fall back to `POST /api/command` on the server. Mouse interaction per
+  REQUIREMENTS.md §7: click given → unset, click empty → digit popup, rand button with
+  time-based seed + dropdown of the last ≤ 8 seeds (`sudoku_seeds` cookie).
 
 
 - More frontends (TUI via ratatui, web via axum) — new `Ui` impl only.

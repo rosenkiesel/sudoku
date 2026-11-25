@@ -166,4 +166,20 @@ server which other cookies exist and how to decode them. All values are base64ur
 - If wasm is unavailable (old browser, CSP/enterprise policy), all commands fall back to
   `POST /api/command`; the server runs the same `app::step` and writes the same cookies.
 
+## 7. Web UI interaction
+
+Comfortable mouse interaction on the grid (works in both modes — wasm client-side and
+server fallback — and always updates the cookies via the shared Rust codec):
+
+1. **Click on a cell with a given** → removes the given (`unset <x> <y>`).
+2. **Click on an empty cell** → popup with the digits `1..=N` to choose from → sets the
+   given (`set <x> <y> <n>`).
+3. After either click the assignment is cleared (back to the givens view), same as in the
+   console.
+4. **`rand` button** → generates a new time-based seed (e.g. `Date.now()`) and runs
+   `rand <seed>`; next to it a **dropdown with the up to 8 most recently used seeds**
+   (most recent first), persisted in the `sudoku_seeds` cookie (base64url JSON array,
+   ≤ 8 entries). Picking a seed from the dropdown runs `rand <seed>` again.
+
+
 
